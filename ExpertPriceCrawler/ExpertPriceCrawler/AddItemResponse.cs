@@ -8,6 +8,7 @@ namespace ExpertPriceCrawler
 {
     struct AddItemResponse
     {
+        public string ItemId { get; set; }
         public ShoppingCart ShoppingCart { get; set; }
     }
 
@@ -24,5 +25,17 @@ namespace ExpertPriceCrawler
     struct Price
     {
         public decimal Gross { get; set; }
+
+        public CustomData CustomData { get; set; }
+    }
+
+    struct CustomData
+    {
+        public ExpPrice ExpPrice { get; set; }
+    }
+
+    struct ExpPrice
+    {
+        public string OnlineStore { get; set; }
     }
 }

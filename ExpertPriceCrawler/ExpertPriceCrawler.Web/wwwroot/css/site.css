@@ -30,3 +30,13 @@ body {
         height: 100vh;
         width: 100vw;
     }
+
+#statuslog {
+    height: 300px;
+    overflow-y: auto;
+    background-color: black;
+    color: white;
+    font-family: Consolas;
+    text-align: left;
+    margin: 20px 0;
+}
