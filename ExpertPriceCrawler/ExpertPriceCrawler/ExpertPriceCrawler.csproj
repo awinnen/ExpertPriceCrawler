@@ -1,16 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CefSharp.OffScreen.NETCore" Version="95.7.141" />
-    <PackageReference Include="ConsoleTables" Version="2.4.2" />
     <PackageReference Include="Microsoft.Net.Http.Headers" Version="2.2.8" />
+    <PackageReference Include="PuppeteerSharp" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>

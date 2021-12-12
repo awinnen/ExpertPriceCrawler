@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpertPriceCrawler", "ExpertPriceCrawler\ExpertPriceCrawler.csproj", "{0651DE56-9F60-4F49-9E6F-D0BFD12C82CC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExpertPriceCrawler", "ExpertPriceCrawler\ExpertPriceCrawler.csproj", "{0651DE56-9F60-4F49-9E6F-D0BFD12C82CC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExpertPriceCrawler.Web", "ExpertPriceCrawler.Web\ExpertPriceCrawler.Web.csproj", "{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpertPriceCrawler.Shell", "ExpertPriceCrawler.Shell\ExpertPriceCrawler.Shell.csproj", "{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{0651DE56-9F60-4F49-9E6F-D0BFD12C82CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0651DE56-9F60-4F49-9E6F-D0BFD12C82CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0651DE56-9F60-4F49-9E6F-D0BFD12C82CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

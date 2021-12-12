@@ -1,0 +1,64 @@
+﻿@page
+
+@using ExpertPriceCrawler
+@model IndexModel
+@{
+    ViewData["Title"] = "Expert Price Crawler";
+}
+
+@{
+    List<Result> data = null;
+    if (HttpContext.Request.Query.TryGetValue("productUrl", out var url))
+    {
+        var uri = new Uri(url);
+        data = await ExpertPriceCrawler.Crawler.CollectPrices(uri);
+    }
+}
+
+<div class="text-center">
+    <h1 class="display-4">Expert Price Crawler</h1>
+
+    @if (data is null)
+    {
+        <form action="/" method="get">
+            <div class="form-group">
+                <label for="productUrl">
+                    Expert Produkt Url
+                </label>
+                <input id="productUrl" class="form-control" type="text" name="productUrl" />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" type="submit">Günstigsten Preis suchen</button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Filial-ID</th>
+                    <th>Filiale</th>
+                    <th>Preis</th>
+                    <th>Link</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in data.OrderBy(x => x.PriceDecimal))
+                {
+                    <tr>
+                        <td>@entry.BranchId</td>
+                        <td>@entry.BranchName</td>
+                        <td>@entry.Price</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(entry.Url))
+                            {
+                                <a href="@entry.Url">Zum Shop</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
