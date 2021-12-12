@@ -63,11 +63,12 @@ namespace ExpertPriceCrawler
         {
             Console.WriteLine("Please wait...");
 
-            using var browserFetcher = new BrowserFetcher();
-            await browserFetcher.DownloadAsync();
-            await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { 
-                Headless = true,
-            });
+            if(Constants.LaunchOptions.ExecutablePath is null)
+            {
+                using var browserFetcher = new BrowserFetcher();
+                await browserFetcher.DownloadAsync();
+            }
+            await using var browser = await Puppeteer.LaunchAsync(Constants.LaunchOptions);
             await using var page = await browser.NewPageAsync();
             await page.SetUserAgentAsync(Constants.UserAgent);
             await page.SetJavaScriptEnabledAsync(true);
