@@ -10,6 +10,7 @@ namespace ExpertPriceCrawler
         public const string ShoppingCartUrl = "https://www.expert.de/_api/shoppingcart/addItem";
         public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36";
         public const int ChunkSize = 30;
+        public const int MemoryCacheMinutes = 10;
 
         public const string CartIdPattern = "data-cart-id=\"(.+?)\"";
         public const string ArticleIdPattern = "data-article-id=\"(.+?)\"";

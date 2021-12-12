@@ -1,4 +1,5 @@
-﻿using Microsoft.Net.Http.Headers;
+﻿using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Net.Http.Headers;
 using PuppeteerSharp;
 using System.Text;
 using System.Text.Json;
@@ -7,56 +8,61 @@ namespace ExpertPriceCrawler
 {
     public static class Crawler
     {
+        private static IMemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
-            var (cookies, articleId, cartId, csrfToken, userAgent) = await RequestProductPage(uri.ToString());
+            return await memoryCache.GetOrCreateAsync(uri.ToString(), async e => {
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(Constants.MemoryCacheMinutes);
 
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("csrf-token", csrfToken);
-            httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, userAgent);
+                var (cookies, articleId, cartId, csrfToken, userAgent) = await RequestProductPage(uri.ToString());
 
-            async Task<Result?> AddToCart(KeyValuePair<string, string> branch)
-            {
-                try
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("csrf-token", csrfToken);
+                httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, userAgent);
+
+                async Task<Result?> AddToCart(KeyValuePair<string, string> branch)
                 {
-                    var price = await RequestBranch(httpClient, articleId, cartId, branch.Key, cookies);
-                    return new Result()
+                    try
                     {
-                        BranchId = branch.Key,
-                        BranchName = branch.Value,
-                        Price = $"{price}€",
-                        PriceDecimal = price,
-                        Url = $"{uri}?branch_id={branch.Key}"
-                    };
+                        var price = await RequestBranch(httpClient, articleId, cartId, branch.Key, cookies);
+                        return new Result()
+                        {
+                            BranchId = branch.Key,
+                            BranchName = branch.Value,
+                            Price = $"{price}€",
+                            PriceDecimal = price,
+                            Url = $"{uri}?branch_id={branch.Key}"
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        return new Result()
+                        {
+                            BranchId = branch.Key,
+                            BranchName = branch.Value,
+                            Price = $"-",
+                            PriceDecimal = Decimal.MaxValue,
+                            Url = string.Empty
+                        };
+                    }
                 }
-                catch (Exception ex)
+
+                var branchPrices = new List<Result>();
+
+                var chunks = Constants.Branches.Chunk(Constants.ChunkSize);
+                var current = 0;
+                var total = chunks.Count();
+                foreach (var chunk in chunks)
                 {
-                    return new Result()
-                    {
-                        BranchId = branch.Key,
-                        BranchName = branch.Value,
-                        Price = $"-",
-                        PriceDecimal = Decimal.MaxValue,
-                        Url = string.Empty
-                    };
+                    Console.WriteLine($"Fetching chunk. Please wait... ({++current}/{total})");
+                    var results = await Task.WhenAll(chunk.Select(c => AddToCart(c)));
+                    branchPrices.AddRange(results.Where(r => r != null).Cast<Result>());
                 }
-            }
 
-            var branchPrices = new List<Result>();
+                branchPrices = branchPrices.OrderBy(x => x.PriceDecimal).ToList();
 
-            var chunks = Constants.Branches.Chunk(Constants.ChunkSize);
-            var current = 0;
-            var total = chunks.Count();
-            foreach (var chunk in chunks)
-            {
-                Console.WriteLine($"Fetching chunk. Please wait... ({++current}/{total})");
-                var results = await Task.WhenAll(chunk.Select(c => AddToCart(c)));
-                branchPrices.AddRange(results.Where(r => r != null).Cast<Result>());
-            }
-
-            branchPrices = branchPrices.OrderBy(x => x.PriceDecimal).ToList();
-
-            return branchPrices;
+                return branchPrices;
+            });
         }
 
         static async Task<(Dictionary<string, string>, string cartId, string articleId, string csrfToken, string userAgent)> RequestProductPage(string productUrl)
