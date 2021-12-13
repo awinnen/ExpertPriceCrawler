@@ -4,18 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
-{
-    ExpertPriceCrawler.Constants.LaunchOptions = new PuppeteerSharp.LaunchOptions()
-    {
-        Headless = true,
-        ExecutablePath = "/usr/bin/google-chrome-stable",
-        Args = new[]
-        {
-            "--no-sandbox"
-        }
-    };
-}
+ExpertPriceCrawler.Configuration.Init(app.Environment.EnvironmentName);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

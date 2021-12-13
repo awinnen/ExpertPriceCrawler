@@ -6,10 +6,9 @@ namespace ExpertPriceCrawler.Web.Controllers
     {
 
         [Route("/api/status")]
-        public async Task<IActionResult> GetStatus(Uri uri)
+        public IActionResult GetStatus(Uri uri)
         {
-            uri = new Uri($"https://www.expert.de{uri.AbsolutePath}");
-            if (Crawler.StatusDictionary.TryGetValue(uri.ToString(), out var statusMsg))
+            if (Crawler.StatusDictionary.TryGetValue(uri.MakeExpertUri().ToString(), out var statusMsg))
             {
                 return Ok(statusMsg);
             }

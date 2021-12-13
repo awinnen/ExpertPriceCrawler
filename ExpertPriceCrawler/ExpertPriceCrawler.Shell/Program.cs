@@ -1,4 +1,5 @@
 ﻿using ConsoleTables;
+using ExpertPriceCrawler;
 using System.Text;
 
 public static class Program
@@ -6,6 +7,7 @@ public static class Program
 
     static async Task Main()
     {
+        Configuration.Init("Production");
         Console.OutputEncoding = Encoding.UTF8;
 
         var uri = ReadUrl();
@@ -15,7 +17,7 @@ public static class Program
         int printRowCount = 10;
         do
         {
-            ConsoleTable.From(
+            ConsoleTable.From<ResultBase>(
                 branchPrices.OrderBy(x => x.PriceDecimal)
                     .Skip(done)
                     .Take(printRowCount)

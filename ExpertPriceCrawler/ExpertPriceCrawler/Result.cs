@@ -1,11 +1,15 @@
 ﻿namespace ExpertPriceCrawler
 {
-    public struct Result
+
+    public class ResultBase
     {
         public string BranchId { get; set; }
         public string BranchName { get; set; }
         public string Price { get; set; }
         public string Url { get; set; }
+    }
+    public class Result: ResultBase
+    {
         public decimal PriceDecimal { get; set; }
     }
 }

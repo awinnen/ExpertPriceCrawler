@@ -348,3 +348,5 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+ExpertPriceCrawler/ExpertPriceCrawler.Web/.local-chromium
+ExpertPriceCrawler/ExpertPriceCrawler.Web/GPUCache
