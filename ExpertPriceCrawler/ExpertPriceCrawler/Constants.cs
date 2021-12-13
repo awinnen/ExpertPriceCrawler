@@ -21,6 +21,7 @@ namespace ExpertPriceCrawler
         public static Regex ArticleIdRegex = new Regex(ArticleIdPattern, RegexOptions.Compiled);
         public static Regex CsrfTokenRegex = new Regex(CsrfTokenPattern, RegexOptions.Compiled);
         public static Regex PriceRegex = new Regex(@"[\d\,\.]+", RegexOptions.Compiled);
+        public static Regex PriceRegexItemProp = new Regex("itemprop=\"price\".*?([\\d+\\,\\.]+)", RegexOptions.Compiled);
 
         public static CultureInfo Culture = CultureInfo.InvariantCulture;
         public static LaunchOptions LaunchOptions = new LaunchOptions

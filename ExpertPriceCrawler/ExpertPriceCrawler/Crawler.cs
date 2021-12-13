@@ -25,7 +25,15 @@ namespace ExpertPriceCrawler
             }
 
             using var browser = await Puppeteer.LaunchAsync(Constants.LaunchOptions);
+            //var requiredInformation = await GetRequiredInformation(uri.ToString());
+            //using var httpClient = new HttpClient();
+            //httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, requiredInformation.userAgent);
 
+            var browserContexts = new BrowserContext[Constants.ChunkSize];
+            for (var i = 0; i < Constants.ChunkSize; i++)
+            {
+                browserContexts[i] = await browser.CreateIncognitoBrowserContextAsync();
+            }
 
             return await memoryCache.GetOrCreateAsync(uri.ToString(), async e =>
             {
@@ -41,17 +49,11 @@ namespace ExpertPriceCrawler
                         var statusMessage = $"Fetching chunk. Please wait... ({++current}/{chunkCount})";
                         StatusDictionary.AddOrUpdate(uri.ToString(), (_) => statusMessage, (_, _) => statusMessage);
                         Console.WriteLine(statusMessage);
-                        
-                        var browserContexts = new List<BrowserContext>();
-                        foreach(var branch in chunk)
-                        {
-                            browserContexts.Add(await browser.CreateIncognitoBrowserContextAsync());
-                        }
 
                         var results = await Task.WhenAll(chunk.Select(async (branch, index) =>
                         {
-                            var price = await RequestProductPage(browserContexts[index], $"{uri}?branch_id={branch.Key}");
-                            await browserContexts[index].CloseAsync();
+                            var price = await RequestProductPageInBrowser(browserContexts[index], $"{uri}?branch_id={branch.Key}");
+                            //var price = await RequestProductPageWithHttpClient(httpClient, $"{uri}?branch_id={branch.Key}", branch.Key, requiredInformation.cookies);
 
                             return new Result()
                             {
@@ -76,11 +78,65 @@ namespace ExpertPriceCrawler
             });
         }
 
-        static async Task<decimal?> RequestProductPage(BrowserContext browserContext, string productUrl)
+        static async Task<(Dictionary<string, string> cookies, string cartId, string articleId, string csrfToken, string userAgent)> GetRequiredInformation(string productUrl)
+        {
+            await using var browser = await Puppeteer.LaunchAsync(Constants.LaunchOptions);
+            await using var page = await browser.NewPageAsync();
+            await page.SetUserAgentAsync(Constants.UserAgent);
+            await page.SetJavaScriptEnabledAsync(false);
+
+            var response = await page.GoToAsync(productUrl);
+
+            var userAgent = await page.EvaluateExpressionAsync<string>("window.navigator.userAgent");
+
+            var productPage = await response.TextAsync();
+            var cookies = await page.GetCookiesAsync(productUrl);
+            var cookieList = cookies.ToDictionary(c => c.Name, c => c.Value);
+
+            var cartId = Constants.CartIdRegex.Match(productPage);
+            var articleId = Constants.ArticleIdRegex.Match(productPage);
+            var csrfToken = Constants.CsrfTokenRegex.Match(productPage);
+
+            if (!(cartId.Success && articleId.Success && csrfToken.Success))
+            {
+                throw new Exception("CartId, ArticleId or CsrfToken not found on Page");
+            }
+
+            return (cookieList, articleId.Groups[1].Value, cartId.Groups[1].Value, csrfToken.Groups[1].Value, userAgent);
+        }
+
+        static async Task<decimal?> RequestProductPageWithHttpClient(HttpClient httpClient, string productUrl, string branchId, Dictionary<string, string> cookies)
+        {
+            var content = new StringContent(String.Empty);
+            httpClient.DefaultRequestHeaders.Add("Cookie", string.Join("; ", cookies.Where(x => x.Key != "fmarktcookie").Select(c => $"{c.Key}={c.Value}")));
+            var response = await httpClient.SendAsync(new HttpRequestMessage() { Content = content, RequestUri = new Uri(productUrl) });
+            var text = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var match = Constants.PriceRegexItemProp.Match(text);
+
+            return match.Success && match.Groups[1].Success ? decimal.Parse(match.Groups[1].Value, Constants.Culture) : null;
+        }
+
+        static async Task<decimal?> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
             await using var page = await browserContext.NewPageAsync();
             await page.SetUserAgentAsync(Constants.UserAgent);
             await page.SetJavaScriptEnabledAsync(true);
+            await page.SetRequestInterceptionAsync(true);
+            page.Request += async (_, args) =>
+            {
+                var req = args.Request;
+                if (req.ResourceType != ResourceType.Document)
+                {
+                    await req.AbortAsync();
+                }
+                else
+                {
+                    await req.ContinueAsync();
+                }
+            };
 
 
             var response = await page.GoToAsync(productUrl);
@@ -157,7 +213,8 @@ namespace ExpertPriceCrawler
             });
 
             // Remove item from ShoppingCart
-            await client.PostAsync(Constants.ModifyItemQuantityUrl, new StringContent(JsonSerializer.Serialize(new {
+            await client.PostAsync(Constants.ModifyItemQuantityUrl, new StringContent(JsonSerializer.Serialize(new
+            {
                 itemId = result.ItemId,
                 quantity = 0,
                 shoppingCartId = cartId,

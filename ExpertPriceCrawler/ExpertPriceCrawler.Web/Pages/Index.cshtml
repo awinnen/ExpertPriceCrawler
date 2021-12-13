@@ -8,11 +8,16 @@
 
 @{
     List<Result> data = null;
+    var stopWatch = System.Diagnostics.Stopwatch.StartNew();
     if (HttpContext.Request.Query.TryGetValue("productUrl", out var url))
     {
         var uri = new Uri(url);
-        data = await ExpertPriceCrawler.Crawler.CollectPrices(uri);
+        await ExpertPriceCrawler.Crawler.CollectPrices(uri).ContinueWith(t => {
+            data = t.Result;
+            stopWatch.Stop();
+        });
     }
+
 }
 
 <script>
@@ -68,6 +73,9 @@
     }
     else
     {
+        <div class="d-flex justify-content-end">
+            <span>Time Taken: @(stopWatch.Elapsed.TotalSeconds)s</span>
+        </div>
         <table class="table table-striped">
             <thead>
                 <tr>
