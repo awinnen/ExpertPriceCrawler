@@ -18,6 +18,7 @@ namespace ExpertPriceCrawler
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
+            uri = new Uri($"https://www.expert.de{uri.AbsolutePath}");
             if (Constants.LaunchOptions.ExecutablePath is null)
             {
                 using var browserFetcher = new BrowserFetcher();
@@ -149,10 +150,10 @@ namespace ExpertPriceCrawler
         {
             try
             {
-                var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 5000 });
+                var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 1000 });
                 var property = await handle.GetPropertyAsync("innerText");
                 var innerText = await property.JsonValueAsync();
-                return innerText is string priceString ? decimal.Parse(Constants.PriceRegex.Match(priceString).Value, Constants.Culture) : null;
+                return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(Constants.PriceRegex.Match(priceString).Value, Constants.Culture) : null;
             }
             catch
             {
