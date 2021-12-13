@@ -11,8 +11,6 @@ namespace ExpertPriceCrawler
     public static class Crawler
     {
         private static IMemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
-        private static KeyValuePair<string, string>[][] chunks = Constants.Branches.Chunk(Constants.ChunkSize).ToArray();
-        private static int chunkCount = chunks.Count();
         public static ConcurrentDictionary<string, string> StatusDictionary = new ConcurrentDictionary<string, string>();
 
 
@@ -26,15 +24,7 @@ namespace ExpertPriceCrawler
             }
 
             using var browser = await Puppeteer.LaunchAsync(Constants.LaunchOptions);
-            //var requiredInformation = await GetRequiredInformation(uri.ToString());
-            //using var httpClient = new HttpClient();
-            //httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, requiredInformation.userAgent);
-
-            var browserContexts = new BrowserContext[Constants.ChunkSize];
-            for (var i = 0; i < Constants.ChunkSize; i++)
-            {
-                browserContexts[i] = await browser.CreateIncognitoBrowserContextAsync();
-            }
+            ConcurrentStack<BrowserContext> browserContextPool = await CreateBrowserContextPool(browser);
 
             return await memoryCache.GetOrCreateAsync(uri.ToString(), async e =>
             {
@@ -42,41 +32,58 @@ namespace ExpertPriceCrawler
                 {
                     e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(Constants.MemoryCacheMinutes);
 
-                    var branchPrices = new List<Result>();
+                    var results = new ConcurrentDictionary<string, Result>();
+                    var branchesTotal = Constants.Branches.Count;
+                    var branchesDone = 0;
 
-                    var current = 0;
-                    foreach (var chunk in chunks)
+                    await Parallel.ForEachAsync(Constants.Branches, new ParallelOptions { MaxDegreeOfParallelism = Constants.ChunkSize }, async (branch, cancellationToken) =>
                     {
-                        var statusMessage = $"Fetching chunk. Please wait... ({++current}/{chunkCount})";
-                        StatusDictionary.AddOrUpdate(uri.ToString(), (_) => statusMessage, (_, _) => statusMessage);
-                        Console.WriteLine(statusMessage);
-
-                        var results = await Task.WhenAll(chunk.Select(async (branch, index) =>
+                        try
                         {
-                            var price = await RequestProductPageInBrowser(browserContexts[index], $"{uri}?branch_id={branch.Key}");
+                            if (!browserContextPool.TryPop(out var browserContext))
+                            {
+                                Console.Error.WriteLine("Could not get BrowserContext from Stack");
+                                return;
+                            }
+                            var price = await RequestProductPageInBrowser(browserContext, $"{uri}?branch_id={branch.Key}");
                             //var price = await RequestProductPageWithHttpClient(httpClient, $"{uri}?branch_id={branch.Key}", branch.Key, requiredInformation.cookies);
-
-                            return new Result()
+                            browserContextPool.Push(browserContext);
+                            results.TryAdd(branch.Key, new Result()
                             {
                                 Price = price is not null ? price.ToString() + "€" : "N/A",
                                 PriceDecimal = price ?? decimal.MaxValue,
                                 BranchId = branch.Key,
                                 BranchName = branch.Value,
                                 Url = $"{uri}?branch_id={branch.Key}"
-                            };
-                        }));
-                        branchPrices.AddRange(results.Cast<Result>());
-                    }
+                            });
+                        }
+                        finally
+                        {
+                            Interlocked.Increment(ref branchesDone);
+                            var statusMessage = $"Crawling... ({branchesDone}/{branchesTotal})";
+                            Console.WriteLine(statusMessage);
+                            StatusDictionary.AddOrUpdate(uri.ToString(), _ => statusMessage, (_, _) => statusMessage);
+                        }
+                    });
 
-                    branchPrices = branchPrices.OrderBy(x => x.PriceDecimal).ToList();
-
-                    return branchPrices;
+                    return results.Values.OrderBy(x => x.PriceDecimal).ToList();
                 }
                 finally
                 {
                     StatusDictionary.Remove(uri.ToString(), out _);
                 }
             });
+        }
+
+        private static async Task<ConcurrentStack<BrowserContext>> CreateBrowserContextPool(Browser browser)
+        {
+            var browserContextPool = new ConcurrentStack<BrowserContext>();
+            for (var i = 0; i < Constants.ChunkSize; i++)
+            {
+                browserContextPool.Push(await browser.CreateIncognitoBrowserContextAsync());
+            }
+
+            return browserContextPool;
         }
 
         static async Task<(Dictionary<string, string> cookies, string cartId, string articleId, string csrfToken, string userAgent)> GetRequiredInformation(string productUrl)
