@@ -8,7 +8,7 @@ namespace ExpertPriceCrawler.Web.Controllers
         [Route("/api/status")]
         public IActionResult GetStatus(Uri uri)
         {
-            if (Crawler.StatusDictionary.TryGetValue(uri.MakeExpertUri().ToString(), out var statusMsg))
+            if (Crawler.statusDictionary.TryGetValue(uri.MakeExpertUri().ToString(), out var statusMsg))
             {
                 return Ok(statusMsg);
             }

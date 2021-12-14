@@ -1,14 +1,16 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using PuppeteerSharp;
+using Serilog;
 using System.Collections.Concurrent;
 
 namespace ExpertPriceCrawler
 {
     public static class Crawler
     {
-        private static Configuration Configuration => Configuration.Instance;
+        private static ILogger logger => Configuration.Logger;
+        private static ConfigurationValues configuration => Configuration.Instance;
         private static IMemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
-        public static ConcurrentDictionary<string, string> StatusDictionary = new ConcurrentDictionary<string, string>();
+        public static ConcurrentDictionary<string, string> statusDictionary = new ConcurrentDictionary<string, string>();
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
@@ -16,9 +18,11 @@ namespace ExpertPriceCrawler
 
             await EnsureBrowserAvailable();
 
+            logger.Information($"Requested Prices for {uri}");
             return await memoryCache.GetOrCreateAsync(uri.ToString(), async e =>
             {
-                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(Configuration.MemoryCacheMinutes);
+                logger.Verbose("Result not in cache. Crawling with {maxParallel} parallel requests", configuration.MaxParallelRequests);
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(configuration.MemoryCacheMinutes);
                 return await GetResultForUri(uri, CancellationToken.None);
             });
         }
@@ -27,16 +31,16 @@ namespace ExpertPriceCrawler
         {
             try
             {
-                using var browser = await Puppeteer.LaunchAsync(Configuration.PuppeteerLaunchOptions);
+                using var browser = await Puppeteer.LaunchAsync(configuration.PuppeteerLaunchOptions);
                 ConcurrentStack<BrowserContext> browserContextPool = await CreateBrowserContextPool(browser);
 
                 var results = new ConcurrentDictionary<string, Result>();
-                var branchesTotal = Configuration.Branches.Count;
+                var branchesTotal = configuration.Branches.Count;
                 var branchesDone = 0;
 
-                await Parallel.ForEachAsync(Configuration.Branches, new ParallelOptions
+                await Parallel.ForEachAsync(configuration.Branches, new ParallelOptions
                 {
-                    MaxDegreeOfParallelism = Configuration.MaxParallelRequests,
+                    MaxDegreeOfParallelism = configuration.MaxParallelRequests,
                     CancellationToken = cancellationToken
                 }, async (branch, cancellationToken) =>
                 {
@@ -44,11 +48,12 @@ namespace ExpertPriceCrawler
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
+                            logger.Debug("Cancellation requested. Preventing further requests");
                             return;
                         }
                         if (!browserContextPool.TryPop(out var browserContext))
                         {
-                            Console.Error.WriteLine("Could not get BrowserContext from Stack");
+                            logger.Error("Could not get BrowserContext from Stack");
                             return;
                         }
 
@@ -67,24 +72,30 @@ namespace ExpertPriceCrawler
                     finally
                     {
                         Interlocked.Increment(ref branchesDone);
-                        var statusMessage = $"Progress: ({branchesDone}/{branchesTotal})";
-                        Console.WriteLine(statusMessage);
-                        StatusDictionary.AddOrUpdate(uri.ToString(), _ => statusMessage, (_, _) => statusMessage);
+                        var statusMessage = $"Progress: {branchesDone}/{branchesTotal} branches";
+                        logger.Information(statusMessage);
+                        statusDictionary.AddOrUpdate(uri.ToString(), _ => statusMessage, (_, _) => statusMessage);
                     }
                 });
 
+                logger.Information("Successfully finished Crawling");
                 return results.Values.OrderBy(x => x.PriceDecimal).ToList();
+            }
+            catch(Exception ex)
+            {
+                logger.Fatal(ex, "Something bad happened, Sorry ;(");
+                throw;
             }
             finally
             {
-                StatusDictionary.Remove(uri.ToString(), out _);
+                statusDictionary.Remove(uri.ToString(), out _);
             }
         }
 
         private static async Task<ConcurrentStack<BrowserContext>> CreateBrowserContextPool(Browser browser)
         {
             var browserContextPool = new ConcurrentStack<BrowserContext>();
-            for (var i = 0; i < Configuration.MaxParallelRequests; i++)
+            for (var i = 0; i < configuration.MaxParallelRequests; i++)
             {
                 browserContextPool.Push(await browser.CreateIncognitoBrowserContextAsync());
             }
@@ -94,8 +105,9 @@ namespace ExpertPriceCrawler
 
         static async Task<decimal?> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
+            logger.Debug("Requesting {url}", productUrl);
             await using var page = await browserContext.NewPageAsync();
-            await page.SetUserAgentAsync(Configuration.UserAgent);
+            await page.SetUserAgentAsync(configuration.UserAgent);
             await page.SetJavaScriptEnabledAsync(false);
             await page.SetRequestInterceptionAsync(true);
             page.Request += async (_, args) =>
@@ -123,19 +135,20 @@ namespace ExpertPriceCrawler
                 var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 1000 });
                 var property = await handle.GetPropertyAsync("innerText");
                 var innerText = await property.JsonValueAsync();
-                return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(Configuration.PriceRegex.Match(priceString).Value, Configuration.Culture) : null;
+                return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(configuration.PriceRegex.Match(priceString).Value, configuration.Culture) : null;
             }
-            catch
+            catch(Exception e)
             {
+                logger.Debug(e, "Error finding Price for {pageUrl}", page.Url);
                 return null;
             }
         }
 
         private static async Task EnsureBrowserAvailable()
         {
-            if (Configuration.PuppeteerLaunchOptions.ExecutablePath is null)
+            if (configuration.PuppeteerLaunchOptions.ExecutablePath is null)
             {
-                Console.WriteLine("Initializing. This may take some minutes...");
+                logger.Information("Initializing. This may take some minutes...");
                 using var browserFetcher = new BrowserFetcher();
                 await browserFetcher.DownloadAsync();
             }
