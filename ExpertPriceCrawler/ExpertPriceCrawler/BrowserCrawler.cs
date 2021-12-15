@@ -5,12 +5,12 @@ using System.Collections.Concurrent;
 
 namespace ExpertPriceCrawler
 {
-    public static class Crawler
+    public static class BrowserCrawler
     {
         private static ILogger logger => Configuration.Logger;
         private static ConfigurationValues configuration => Configuration.Instance;
-        private static IMemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
-        public static ConcurrentDictionary<string, string> statusDictionary = new ConcurrentDictionary<string, string>();
+        private static IMemoryCache memoryCache = Configuration.MemoryCache;
+        public static ConcurrentDictionary<string, string> statusDictionary = Configuration.StatusDictionary;
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
@@ -29,6 +29,7 @@ namespace ExpertPriceCrawler
 
         private static async Task<List<Result>> GetResultForUri(Uri uri, CancellationToken cancellationToken)
         {
+            var errors = 0;
             try
             {
                 using var browser = await Puppeteer.LaunchAsync(configuration.PuppeteerLaunchOptions);
@@ -58,7 +59,7 @@ namespace ExpertPriceCrawler
                         }
 
                         var branchUrl = $"{uri}?branch_id={branch.Key}";
-                        var price = await RequestProductPageInBrowser(browserContext, branchUrl);
+                        (bool error, decimal? price) = await RequestProductPageInBrowser(browserContext, branchUrl);
                         browserContextPool.Push(browserContext);
                         results.TryAdd(branch.Key, new Result()
                         {
@@ -68,6 +69,10 @@ namespace ExpertPriceCrawler
                             BranchName = branch.Value,
                             Url = branchUrl
                         });
+                        if (error)
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
                     }
                     finally
                     {
@@ -81,7 +86,7 @@ namespace ExpertPriceCrawler
                 logger.Information("Successfully finished Crawling");
                 return results.Values.OrderBy(x => x.PriceDecimal).ToList();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 logger.Fatal(ex, "Something bad happened, Sorry ;(");
                 throw;
@@ -89,6 +94,15 @@ namespace ExpertPriceCrawler
             finally
             {
                 statusDictionary.Remove(uri.ToString(), out _);
+                if (errors > configuration.MaxErrorsAllowed)
+                {
+                    memoryCache.GetOrCreate("disabledUntil", (e) =>
+                    {
+                        var expireDate = DateTimeOffset.UtcNow.AddMinutes(10);
+                        e.SetAbsoluteExpiration(expireDate);
+                        return expireDate;
+                    });
+                }
             }
         }
 
@@ -103,7 +117,7 @@ namespace ExpertPriceCrawler
             return browserContextPool;
         }
 
-        static async Task<decimal?> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
+        static async Task<(bool Error, decimal? Price)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
             logger.Debug("Requesting {url}", productUrl);
             await using var page = await browserContext.NewPageAsync();
@@ -123,21 +137,32 @@ namespace ExpertPriceCrawler
                 }
             };
 
+            var retries = configuration.Retries;
 
-            var response = await page.GoToAsync(productUrl);
-            return await FindPrice(page);
+            Response response = await page.GoToAsync(productUrl);
+            while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0) {
+                response = await page.ReloadAsync();
+            }
+
+            if (response.Status != System.Net.HttpStatusCode.OK)
+            {
+                logger.Warning("Failed to retrieve {url} after {retries} retries: Status {status}", productUrl, configuration.Retries, (int)response.Status);
+                logger.Debug("{body}", await page.GetContentAsync());
+                return (true, null);
+            }
+            return (false, await FindPrice(page));
         }
 
         static async Task<decimal?> FindPrice(Page page)
         {
             try
             {
-                var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 1000 });
+                var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 5000 });
                 var property = await handle.GetPropertyAsync("innerText");
                 var innerText = await property.JsonValueAsync();
                 return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(configuration.PriceRegex.Match(priceString).Value, configuration.Culture) : null;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 logger.Debug(e, "Error finding Price for {pageUrl}", page.Url);
                 return null;

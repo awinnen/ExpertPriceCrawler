@@ -11,7 +11,7 @@ public static class Program
         Console.OutputEncoding = Encoding.UTF8;
 
         var uri = ReadUrl();
-        var branchPrices = await ExpertPriceCrawler.Crawler.CollectPrices(uri);
+        var branchPrices = await (Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri));
 
         int done = 0;
         int printRowCount = 10;

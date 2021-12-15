@@ -1,6 +1,7 @@
 ﻿@page
 
 @using ExpertPriceCrawler
+@using Microsoft.Extensions.Caching.Memory
 @model IndexModel
 @{
     ViewData["Title"] = "Expert Price Crawler";
@@ -9,10 +10,13 @@
 @{
     List<Result> data = null;
     var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-    if (HttpContext.Request.Query.TryGetValue("productUrl", out var url))
+    DateTimeOffset? disabledUntil = Configuration.MemoryCache.TryGetValue("disabledUntil", out DateTimeOffset valFromCache) ? valFromCache : null;
+    if (disabledUntil is null && HttpContext.Request.Query.TryGetValue("productUrl", out var url))
     {
         var uri = new Uri(url);
-        await ExpertPriceCrawler.Crawler.CollectPrices(uri).ContinueWith(t => {
+        var task = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri);
+        await task.ContinueWith(t =>
+        {
             data = t.Result;
             stopWatch.Stop();
         });
@@ -56,22 +60,7 @@
 <div class="text-center">
     <h1 class="display-4">Expert Price Crawler</h1>
 
-    @if (data is null)
-    {
-        <form action="/" method="get" onsubmit="addSpinner()">
-            <div class="form-group">
-                <label for="productUrl">
-                    Expert Produkt Url
-                </label>
-                <input id="productUrl" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" name="productUrl" required />
-            </div>
-            <div class="form-group">
-                <button class="btn btn-primary" type="submit">Günstigsten Preis suchen</button>
-            </div>
-        </form>
-        <div id="statuslog"></div>
-    }
-    else
+    @if (data is not null)
     {
         <div class="d-flex justify-content-end">
             <span>Time Taken: @(stopWatch.Elapsed.TotalSeconds)s</span>
@@ -102,5 +91,26 @@
                 }
             </tbody>
         </table>
+    }
+    else if (disabledUntil is DateTimeOffset expireDate)
+    {
+        TimeSpan BlockExpires = expireDate - DateTimeOffset.UtcNow;
+        <div>Sorry, Service is currently disabled due to many errors. Please try again in @((int)BlockExpires.TotalSeconds) seconds</div>
+        <div>In the meantime, cou could try the console app on your machine ;)</div>
+    }
+    else
+    {
+        <form action="/" method="get" onsubmit="addSpinner()">
+            <div class="form-group">
+                <label for="productUrl">
+                    Expert Produkt Url
+                </label>
+                <input id="productUrl" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" name="productUrl" required />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" type="submit">Günstigsten Preis suchen</button>
+            </div>
+        </form>
+        <div id="statuslog"></div>
     }
 </div>
