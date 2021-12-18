@@ -63,7 +63,7 @@
     @if (data is not null)
     {
         <div class="d-flex justify-content-end">
-            <span>Time Taken: @(stopWatch.Elapsed.TotalSeconds)s</span>
+            <span>Dauer der Anfrage: @(stopWatch.Elapsed.TotalSeconds)s</span>
         </div>
         <table class="table table-striped">
             <thead>
@@ -95,8 +95,8 @@
     else if (disabledUntil is DateTimeOffset expireDate)
     {
         TimeSpan BlockExpires = expireDate - DateTimeOffset.UtcNow;
-        <div>Sorry, Service is currently disabled due to many errors. Please try again in @((int)BlockExpires.TotalSeconds) seconds</div>
-        <div>In the meantime, cou could try the console app on your machine ;)</div>
+        <div>Sorry, Der Cralwer macht gerade aufgrund vieler Fehler eine Pause. Vielleicht funktioniert es später wieder. Bitte komm in @((int)BlockExpires.TotalSeconds) sekunden wieder</div>
+        <div>Versuch in der Zwischenzeit doch mal die <a href="https://github.com/awinnen/ExpertPriceCrawler/releases">Konsolenanwendung</a> auf deinem Rechner. Diese ist nebenbei auch noch schneller als dieser Webservice :)</div>
     }
     else
     {
@@ -108,9 +108,32 @@
                 <input id="productUrl" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" name="productUrl" required />
             </div>
             <div class="form-group">
-                <button class="btn btn-primary" type="submit">Günstigsten Preis suchen</button>
+                <button class="btn btn-primary" type="submit">Günstigsten Preis finden</button>
             </div>
         </form>
         <div id="statuslog"></div>
     }
+
+    <div class="d-none">
+        <h2>Kürzlich geprüft</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Produkt</th>
+                    <th>Url</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in Array.Empty<string>())
+                {
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>

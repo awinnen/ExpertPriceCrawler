@@ -83,7 +83,7 @@ namespace ExpertPriceCrawler
                     }
                 });
 
-                logger.Information("Successfully finished Crawling");
+                logger.Information("Finished Crawling with {errorCount} Errors. {successBranches}/{branchesTotal} branches had prices", errors, results.Values.Count(x => x.PriceDecimal < decimal.MaxValue), branchesTotal);
                 return results.Values.OrderBy(x => x.PriceDecimal).ToList();
             }
             catch (Exception ex)

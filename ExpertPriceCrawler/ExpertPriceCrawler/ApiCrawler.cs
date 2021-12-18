@@ -52,7 +52,8 @@ namespace ExpertPriceCrawler
                 try
                 {
                     results.TryAdd(branch.Key, await GetResultForBranch(httpClient, uri.ToString(), articleId, cartId, cookies, branch));
-                } finally
+                }
+                finally
                 {
                     Interlocked.Increment(ref branchesDone);
                     var statusMessage = $"Progress: {branchesDone}/{branchesTotal} branches";
@@ -131,39 +132,48 @@ namespace ExpertPriceCrawler
 
         static async Task<decimal?> GetPrice(HttpClient client, string articleId, string cartId, string branchId, Dictionary<string, string> cookies)
         {
-            var payload = JsonSerializer.Serialize(new
+            try
             {
-                shoppingCartId = cartId,
-                quantity = 1,
-                article = articleId,
-            });
-            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                var payload = JsonSerializer.Serialize(new
+                {
+                    shoppingCartId = cartId,
+                    quantity = 1,
+                    article = articleId,
+                });
+                var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-            cookies["fmarktcookie"] = $"e_{branchId}";
-            content.Headers.Add("Cookie", string.Join("; ", cookies.Select(c => $"{c.Key}={c.Value}")));
+                cookies = cookies.ToDictionary(x => x.Key, x => x.Value);
+                cookies["fmarktcookie"] = $"e_{branchId}";
+                content.Headers.Add("Cookie", string.Join("; ", cookies.Select(c => $"{c.Key}={c.Value}")));
 
-            var shoppingCartResponse = await client.PostAsync(configuration.AddItemUrl, content);
-            var body = await shoppingCartResponse.Content.ReadAsStringAsync();
-            if (!shoppingCartResponse.IsSuccessStatusCode)
-            {
-                logger.Error("Error while adding to shoppingcart, {response}", body);
-                return null;
+                var shoppingCartResponse = await client.PostAsync(configuration.AddItemUrl, content);
+                var body = await shoppingCartResponse.Content.ReadAsStringAsync();
+                if (!shoppingCartResponse.IsSuccessStatusCode)
+                {
+                    logger.Error("Error while adding to shoppingcart, {response}", body);
+                    return null;
+                }
+                shoppingCartResponse.EnsureSuccessStatusCode();
+                var result = JsonSerializer.Deserialize<AddItemResponse>(body, new JsonSerializerOptions()
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                // Remove item from ShoppingCart
+                var deleteContent = new StringContent(JsonSerializer.Serialize(new
+                {
+                    itemId = result.ItemId,
+                    quantity = 0,
+                    shoppingCartId = cartId,
+                }), Encoding.UTF8, "application/json");
+                deleteContent.Headers.Add("Cookie", string.Join("; ", cookies.Select(c => $"{c.Key}={c.Value}")));
+                var deleteResponse = await client.PostAsync(configuration.ModifyItemQuantityUrl, deleteContent);
+                return result.ShoppingCart.LastAdded.Price.Gross;
             }
-            shoppingCartResponse.EnsureSuccessStatusCode();
-            var result = JsonSerializer.Deserialize<AddItemResponse>(body, new JsonSerializerOptions()
+            finally
             {
-                PropertyNameCaseInsensitive = true
-            });
-
-            // Remove item from ShoppingCart
-            await client.PostAsync(configuration.ModifyItemQuantityUrl, new StringContent(JsonSerializer.Serialize(new
-            {
-                itemId = result.ItemId,
-                quantity = 0,
-                shoppingCartId = cartId,
-            }), Encoding.UTF8, "application/json"));
-
-            return result.ShoppingCart.LastAdded.Price.Gross;
+                await Task.Delay(1000);
+            }
         }
     }
 }
