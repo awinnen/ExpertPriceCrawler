@@ -43,13 +43,17 @@ namespace ExpertPriceCrawler
                 {
                     MaxDegreeOfParallelism = configuration.MaxParallelRequests,
                     CancellationToken = cancellationToken
-                }, async (branch, cancellationToken) =>
+                }, async (branch, cToken) =>
                 {
                     try
                     {
-                        if (cancellationToken.IsCancellationRequested)
+                        if (cToken.IsCancellationRequested)
                         {
                             logger.Debug("Cancellation requested. Preventing further requests");
+                            return;
+                        }
+                        if (errors > configuration.MaxErrorsAllowed)
+                        {
                             return;
                         }
                         if (!browserContextPool.TryPop(out var browserContext))
@@ -63,8 +67,8 @@ namespace ExpertPriceCrawler
                         browserContextPool.Push(browserContext);
                         results.TryAdd(branch.Key, new Result()
                         {
-                            Price = price is not null ? price.ToString() + "€" : "N/A",
-                            PriceDecimal = price ?? decimal.MaxValue,
+                            Price = error ? "ERROR" : price is not null ? price.ToString() + "€" : "N/A",
+                            PriceDecimal = error ? decimal.MaxValue : price ?? decimal.MaxValue -1,
                             BranchId = branch.Key,
                             BranchName = branch.Value,
                             Url = branchUrl
@@ -83,7 +87,7 @@ namespace ExpertPriceCrawler
                     }
                 });
 
-                logger.Information("Finished Crawling with {errorCount} Errors. {successBranches}/{branchesTotal} branches had prices", errors, results.Values.Count(x => x.PriceDecimal < decimal.MaxValue), branchesTotal);
+                logger.Information("Finished Crawling with {errorCount} Errors. {successBranches}/{branchesTotal} branches had prices", errors, results.Values.Count(x => x.PriceDecimal < decimal.MaxValue-1), branchesTotal);
                 return results.Values.OrderBy(x => x.PriceDecimal).ToList();
             }
             catch (Exception ex)
