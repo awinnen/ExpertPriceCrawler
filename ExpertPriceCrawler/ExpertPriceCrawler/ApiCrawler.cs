@@ -13,7 +13,6 @@ namespace ExpertPriceCrawler
         private static ILogger logger => Configuration.Logger;
         private static ConfigurationValues configuration => Configuration.Instance;
         private static IMemoryCache memoryCache = Configuration.MemoryCache;
-        public static ConcurrentDictionary<string, string> statusDictionary = Configuration.StatusDictionary;
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
@@ -58,7 +57,6 @@ namespace ExpertPriceCrawler
                     Interlocked.Increment(ref branchesDone);
                     var statusMessage = $"Progress: {branchesDone}/{branchesTotal} branches";
                     logger.Information(statusMessage);
-                    statusDictionary.AddOrUpdate(uri.ToString(), _ => statusMessage, (_, _) => statusMessage);
                 }
             });
 

@@ -1,139 +1,26 @@
 ﻿@page
-
-@using ExpertPriceCrawler
-@using Microsoft.Extensions.Caching.Memory
 @model IndexModel
 @{
     ViewData["Title"] = "Expert Price Crawler";
 }
 
-@{
-    List<Result> data = null;
-    var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-    DateTimeOffset? disabledUntil = Configuration.MemoryCache.TryGetValue("disabledUntil", out DateTimeOffset valFromCache) ? valFromCache : null;
-    if (disabledUntil is null && HttpContext.Request.Query.TryGetValue("productUrl", out var url))
-    {
-        var uri = new Uri(url);
-        var task = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri);
-        await task.ContinueWith(t =>
-        {
-            data = t.Result;
-            stopWatch.Stop();
-        });
-    }
-
-}
-
-<script>
-    function addSpinner(){
-        const productUrl = document.getElementById("productUrl").value;
-        document.body.classList.add("loading");
-
-        const statusLogNode = document.getElementById("statuslog");
-        const statusTextNode = document.createElement("div");
-        statusTextNode.innerText = `Crawling prices for ${productUrl}`;
-        statusLogNode.appendChild(statusTextNode);
-
-        const statusUrl = `/api/status/?uri=${encodeURIComponent(productUrl)}`
-        const interval = setInterval(() => {
-            fetch(statusUrl, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            })
-                .then(response => response.text())
-                .then(status => {
-                    console.log(status);
-
-                    const statusTextNode = document.createElement("div");
-                    statusTextNode.innerText = `${(new Date()).toLocaleTimeString()} ${status}`;
-                    statusLogNode.appendChild(statusTextNode);
-                    statusLogNode.scrollTop = Number.MAX_SAFE_INTEGER
-                }, error => {
-                    clearInterval(interval);
-                });
-        }, 5000);
-    }
-</script>
-
 <div class="text-center">
     <h1 class="display-4">Expert Price Crawler</h1>
-
-    @if (data is not null)
-    {
-        <div class="d-flex justify-content-end">
-            <span>Dauer der Anfrage: @(stopWatch.Elapsed.TotalSeconds)s</span>
+    <form method="post">
+        <div class="form-group">
+            <label for="productUrl">
+                Expert Produkt Url
+            </label>
+            <input asp-for="CrawlJob.Url" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" required />
         </div>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Filial-ID</th>
-                    <th>Filiale</th>
-                    <th>Preis</th>
-                    <th>Link</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var entry in data.OrderBy(x => x.PriceDecimal))
-                {
-                    <tr>
-                        <td>@entry.BranchId</td>
-                        <td>@entry.BranchName</td>
-                        <td>@entry.Price</td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(entry.Url))
-                            {
-                                <a href="@entry.Url" target="_blank" rel="noreferrer">Zum Shop</a>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else if (disabledUntil is DateTimeOffset expireDate)
-    {
-        TimeSpan BlockExpires = expireDate - DateTimeOffset.UtcNow;
-        <div>Sorry, Der Cralwer macht gerade aufgrund vieler Fehler eine Pause. Vielleicht funktioniert es später wieder. Bitte komm in @((int)BlockExpires.TotalSeconds) sekunden wieder</div>
-        <div>Versuch in der Zwischenzeit doch mal die <a href="https://github.com/awinnen/ExpertPriceCrawler/releases">Konsolenanwendung</a> auf deinem Rechner. Diese ist nebenbei auch noch schneller als dieser Webservice :)</div>
-    }
-    else
-    {
-        <form action="/" method="get" onsubmit="addSpinner()">
-            <div class="form-group">
-                <label for="productUrl">
-                    Expert Produkt Url
-                </label>
-                <input id="productUrl" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" name="productUrl" required />
-            </div>
-            <div class="form-group">
-                <button class="btn btn-primary" type="submit">Günstigsten Preis finden</button>
-            </div>
-        </form>
-        <div id="statuslog"></div>
-    }
-
-    <div class="d-none">
-        <h2>Kürzlich geprüft</h2>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Datum</th>
-                    <th>Produkt</th>
-                    <th>Url</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var entry in Array.Empty<string>())
-                {
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+        <div class="form-group">
+            <label for="productUrl">
+                Email-Adresse
+            </label>
+            <input asp-for="CrawlJob.EmailAddress" class="form-control" type="email" required />
+        </div>
+        <div class="form-group">
+            <button class="btn btn-primary" type="submit">Günstigsten Preis finden</button>
+        </div>
+    </form>
 </div>

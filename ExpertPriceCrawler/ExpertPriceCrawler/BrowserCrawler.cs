@@ -10,7 +10,6 @@ namespace ExpertPriceCrawler
         private static ILogger logger => Configuration.Logger;
         private static ConfigurationValues configuration => Configuration.Instance;
         private static IMemoryCache memoryCache = Configuration.MemoryCache;
-        public static ConcurrentDictionary<string, string> statusDictionary = Configuration.StatusDictionary;
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
@@ -83,7 +82,6 @@ namespace ExpertPriceCrawler
                         Interlocked.Increment(ref branchesDone);
                         var statusMessage = $"Progress: {branchesDone}/{branchesTotal} branches";
                         logger.Information(statusMessage);
-                        statusDictionary.AddOrUpdate(uri.ToString(), _ => statusMessage, (_, _) => statusMessage);
                     }
                 });
 
@@ -97,7 +95,6 @@ namespace ExpertPriceCrawler
             }
             finally
             {
-                statusDictionary.Remove(uri.ToString(), out _);
                 if (errors > configuration.MaxErrorsAllowed)
                 {
                     memoryCache.GetOrCreate("disabledUntil", (e) =>
@@ -142,9 +139,14 @@ namespace ExpertPriceCrawler
             };
 
             var retries = configuration.Retries;
+            var retryDelayInMinutes = 1;
 
             Response response = await page.GoToAsync(productUrl);
             while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0) {
+                if(response.Status == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(retryDelayInMinutes + (configuration.Retries - retries)));
+                }
                 response = await page.ReloadAsync();
             }
 

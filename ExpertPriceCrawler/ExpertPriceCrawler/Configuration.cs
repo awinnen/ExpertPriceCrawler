@@ -10,12 +10,11 @@ namespace ExpertPriceCrawler
 {
     public static class Configuration
     {
-        public static ConcurrentDictionary<string, string> StatusDictionary = new ConcurrentDictionary<string, string>();
         public static MemoryCache MemoryCache = new MemoryCache(new MemoryCacheOptions());
         public static readonly ConfigurationValues Instance = new ConfigurationValues();
         public static ILogger Logger;
 
-        public static void Init(string environment)
+        public static IConfigurationRoot Init(string environment)
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
@@ -32,6 +31,7 @@ namespace ExpertPriceCrawler
             .ReadFrom.Configuration(configuration)
             .CreateLogger();
 
+            return configuration;
         }
     }
 

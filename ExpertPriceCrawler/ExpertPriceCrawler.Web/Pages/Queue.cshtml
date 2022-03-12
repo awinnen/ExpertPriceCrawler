@@ -1,0 +1,17 @@
+﻿@page
+@model ExpertPriceCrawler.Web.Pages.QueueModel
+@{
+}
+
+<div>
+    <h1>Anfrage registriert!</h1>
+    @if(Model.JobCount == 0)
+    {
+        <div>Dein Auftrag wird nun bearbeitet</div>
+    } else
+    {
+         <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
+         <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>   
+    }
+    <div>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @Model.EstimatedWaitingTime.TotalMinutes Minuten</div>
+</div>

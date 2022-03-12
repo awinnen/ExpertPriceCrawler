@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExpertPriceCrawler", "Exper
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExpertPriceCrawler.Web", "ExpertPriceCrawler.Web\ExpertPriceCrawler.Web.csproj", "{0DD36ABE-3B96-45BC-A1E2-4E2B15D32BCD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpertPriceCrawler.Shell", "ExpertPriceCrawler.Shell\ExpertPriceCrawler.Shell.csproj", "{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExpertPriceCrawler.Shell", "ExpertPriceCrawler.Shell\ExpertPriceCrawler.Shell.csproj", "{8DE9CB03-39E6-4F10-9A7A-5CA907FC9662}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

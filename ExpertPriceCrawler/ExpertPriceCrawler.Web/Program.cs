@@ -1,10 +1,15 @@
+using ExpertPriceCrawler.Web;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
-var app = builder.Build();
 
-ExpertPriceCrawler.Configuration.Init(app.Environment.EnvironmentName);
+builder.Services.AddSingleton<ChannelManager>();
+
+var configurationRoot = ExpertPriceCrawler.Configuration.Init(builder.Environment.EnvironmentName);
+builder.Services.Configure<SmtpServerConfig>(c => configurationRoot.GetSection("SmtpServer").Bind(c));
+var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
