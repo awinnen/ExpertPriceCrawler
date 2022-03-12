@@ -13,5 +13,5 @@
          <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
          <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>   
     }
-    <div>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @Model.EstimatedWaitingTime.TotalMinutes Minuten</div>
+    <div>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten</div>
 </div>

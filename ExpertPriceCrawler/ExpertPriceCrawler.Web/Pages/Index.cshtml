@@ -4,18 +4,18 @@
     ViewData["Title"] = "Expert Price Crawler";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Expert Price Crawler</h1>
-    <form method="post">
+<div>
+    <h1 class="display-4 text-center">Expert Price Crawler</h1>
+    <form class="w-50 mx-auto" method="post">
         <div class="form-group">
             <label for="productUrl">
                 Expert Produkt Url
             </label>
-            <input asp-for="CrawlJob.Url" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*" required />
+            <input asp-for="CrawlJob.Url" class="form-control" type="text" pattern="https:\/\/www\.expert\.de\/.*\/\d+.+\.html.*" required />
         </div>
         <div class="form-group">
             <label for="productUrl">
-                Email-Adresse
+                Email-Adresse (für Versand der Ergebnisse)
             </label>
             <input asp-for="CrawlJob.EmailAddress" class="form-control" type="email" required />
         </div>

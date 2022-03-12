@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Mail;
 using System.Threading.Channels;
@@ -11,6 +12,7 @@ namespace ExpertPriceCrawler.Web
         private readonly Channel<CrawlJob> jobs = Channel.CreateUnbounded<CrawlJob>();
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
+        private DateTimeFormatInfo dateFormat = (new CultureInfo("de-DE")).DateTimeFormat;
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
 
@@ -73,7 +75,7 @@ namespace ExpertPriceCrawler.Web
                 Body = @$"
 <h1>Ergebnis deiner Anfrage</h1>
 <h2>für {job.Url}</h2>
-<h3>Agefordert um {job.TimeCreated}</h3>
+<h3>Agefordert um {job.TimeCreated.ToString(dateFormat)} (UTC)</h3>
 {GetResultTable(result)}
 ",
                 IsBodyHtml = true,
