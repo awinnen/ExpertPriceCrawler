@@ -28,7 +28,7 @@ namespace ExpertPriceCrawler.Web
         public async Task AddJob(CrawlJob job)
         {
             await jobs.Writer.WriteAsync(job);
-            logger.LogInformation("Job Queued for {url}", job.Url);
+            Configuration.Logger.Information("Job Queued for {url}", job.Url);
         }
 
         private void StartWorker()
@@ -42,7 +42,7 @@ namespace ExpertPriceCrawler.Web
                         await StartJob(job);
                     } catch(Exception ex)
                     {
-                        logger.LogError("Error executing job for {url}", job.Url);
+                        Configuration.Logger.Error(ex, "Error executing job for {url}", job.Url);
                     }
                 }
             });
@@ -53,8 +53,8 @@ namespace ExpertPriceCrawler.Web
             var stopWatch = Stopwatch.StartNew();
             var uri = new Uri(job.Url);
             var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri);
+            Configuration.Logger.Information("Starting Job for {url}", job.Url);
             var result = await resultTask;
-            logger.LogInformation("Starting Job for {url}", job.Url);
             stopWatch.Stop();
             LastJobTimeTaken = stopWatch.Elapsed;
             await SendResult(job, result);
@@ -84,29 +84,33 @@ namespace ExpertPriceCrawler.Web
             message.To.Add(job.EmailAddress);
             message.From = new MailAddress(smtpServerConfig.Value.From);
 
-            logger.LogDebug("Attempting to send Email to {mailAddress}", job.EmailAddress);
+            Configuration.Logger.Debug("Attempting to send Email to {mailAddress}", job.EmailAddress);
             await smtpClient.SendMailAsync(message);
-            logger.LogInformation("Sent Email to {mailAddress}", job.EmailAddress);
+            Configuration.Logger.Information("Sent Email to {mailAddress}", job.EmailAddress);
         }
 
         private string GetResultTable(List<Result> result)
         {
-        return @"
-        <table>
-            <thead>
-                <tr>
-                    <th> Filial - ID </th>
-                    <th> Filiale </th>
-                    <th> Preis </th>
-                    <th> Link </th>
-                </tr>
-            </thead>
-            <tbody>
-        " +
-                string.Join('\n', result.Select(WriteLine))
-            +
-            @"</tbody>
-        </table>";
+            if(result.All(r => r.Price.Equals("error", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "Leider sind zuviele Fehler aufgetreten. Dies kann daran liegen, dass Expert uns gesperrt hat. Bitte versuche es später noch einmal.";
+            }
+            return @"
+            <table>
+                <thead>
+                    <tr>
+                        <th> Filial-ID </th>
+                        <th> Filiale </th>
+                        <th> Preis </th>
+                        <th> Link </th>
+                    </tr>
+                </thead>
+                <tbody>
+            " +
+                    string.Join('\n', result.Select(WriteLine))
+                +
+                @"</tbody>
+            </table>";
         }
 
         private string WriteLine(Result entry)

@@ -143,7 +143,7 @@ namespace ExpertPriceCrawler
 
             Response response = await page.GoToAsync(productUrl);
             while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0) {
-                if(response.Status is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.Forbidden)
+                if(response.Status is System.Net.HttpStatusCode.TooManyRequests)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(retryDelayInMinutes + (configuration.Retries - retries)));
                 }
