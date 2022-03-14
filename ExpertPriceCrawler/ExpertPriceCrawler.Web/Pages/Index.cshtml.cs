@@ -39,9 +39,10 @@ namespace ExpertPriceCrawler.Web.Pages
                 return BadRequest(ModelState);
             }
             Configuration.Logger.Information("Processing request from {ipaddress}", ipaddress);
-            memoryCache.Set(ipaddress, String.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
-            await channelManager.AddJob(new CrawlJob(CrawlJobPost));
-            return RedirectToPage("/Queue");
+            memoryCache.Set(ipaddress, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
+            var job = new CrawlJob(CrawlJobPost);
+            await channelManager.AddJob(job);
+            return RedirectToPage("/Queue", new { job.Id });
         }
     }
 }

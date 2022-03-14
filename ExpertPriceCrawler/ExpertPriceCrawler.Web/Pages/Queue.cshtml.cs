@@ -10,6 +10,8 @@ namespace ExpertPriceCrawler.Web.Pages
         public int JobCount { get; private set; }
         public TimeSpan EstimatedWaitingTime { get; private set; }
         public List<CrawlJob> RecentlyCompletedJobs { get; private set; }
+        public bool JobCompleted { get; private set; }
+        public bool JobIdPresent { get; private set; }
 
         public QueueModel(ChannelManager channelManager)
         {
@@ -21,6 +23,11 @@ namespace ExpertPriceCrawler.Web.Pages
             JobCount = channelManager.JobCount;
             EstimatedWaitingTime = channelManager.LastJobTimeTaken * (JobCount+1);
             RecentlyCompletedJobs = channelManager.RecentlyCompletedJobs;
+            if(HttpContext.Request.Query.TryGetValue("Id", out var jobIdFromQuery))
+            {
+                JobIdPresent = true;
+                JobCompleted = RecentlyCompletedJobs.Any(x => x.Id.ToString().Equals(jobIdFromQuery.ToString(), StringComparison.OrdinalIgnoreCase));
+            }
         }
     }
 }

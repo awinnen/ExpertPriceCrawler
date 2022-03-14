@@ -4,17 +4,28 @@
 }
 
 <div>
-    <h1>Anfrage registriert!</h1>
-    @if (Model.JobCount == 0)
+    @if (Model.JobIdPresent && !Model.JobCompleted)
     {
-        <div>Dein Auftrag wird nun bearbeitet</div>
+        <h1>Anfrage registriert!</h1>
+        @if (Model.JobCount == 0)
+        {
+            <div>Dein Auftrag wird nun bearbeitet</div>
+        }
+        else
+        {
+            <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
+            <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>
+        }
+        <div>
+            <p>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten</p>
+            <p>Bitte auch den SPAM-Ordner prüfen!</p>
+        </div>
     }
-    else
+    else if(Model.JobIdPresent)
     {
-        <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
-        <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>
+        <h1>Deine Anfrage wurde bearbeitet.</h1>
+        <p>Bitte prüfe deine Emails oder such dein Ergebnis in der Tabelle weiter unten.</p>
     }
-    <div>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten</div>
 </div>
 <br />
 <div>
@@ -22,13 +33,13 @@
     <table class="table table-striped">
         <thead>
             <tr>
-                <td>Datum</td>
+                <td>Datum (UTC)</td>
                 <td>Url</td>
                 <td>Ergebnis</td>
             </tr>
         </thead>
         <tbody>
-            @if(Model.RecentlyCompletedJobs.Count == 0)
+            @if (Model.RecentlyCompletedJobs.Count == 0)
             {
                 <tr>
                     <td colspan="99">Sobald Ergebnisse vorliegen, werden diese hier angezeigt.</td>
@@ -36,14 +47,15 @@
             }
             @foreach (var item in Model.RecentlyCompletedJobs)
             {
+                var id = "result-" + item.Id.ToString("N");
                 <tr>
                     <td style="white-space: nowrap;">@item.TimeCreated.ToString(Configuration.Instance.DateFormat)</td>
                     <td>@item.Url</td>
                     <td>
-                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@item.Id" aria-expanded="false" aria-controls="@item.Id">Anzeigen</button>
+                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@id" aria-expanded="false" aria-controls="@id">Anzeigen</button>
                     </td>
                 </tr>
-                <tr class="collapse" id="@item.Id">
+                <tr class="collapse" id="@id">
                     <td colspan="99">
                         @Html.Raw(item.ResultTableHtml)
                     </td>

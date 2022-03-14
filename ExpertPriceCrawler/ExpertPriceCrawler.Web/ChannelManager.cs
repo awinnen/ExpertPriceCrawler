@@ -13,7 +13,7 @@ namespace ExpertPriceCrawler.Web
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
-        private const int MAX_COMPLETED_JOBS = 10;
+        private const int MAX_COMPLETED_JOBS = 20;
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
 
@@ -54,8 +54,7 @@ namespace ExpertPriceCrawler.Web
         private async Task StartJob(CrawlJob job)
         {
             var stopWatch = Stopwatch.StartNew();
-            var uri = new Uri(job.Url);
-            var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri);
+            var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(job.Url) : ApiCrawler.CollectPrices(job.Url);
             Configuration.Logger.Information("Starting Job for {url}", job.Url);
             var result = await resultTask;
             stopWatch.Stop();
