@@ -78,7 +78,7 @@ namespace ExpertPriceCrawler
         public readonly Regex PriceRegex = new Regex(@"[\d\,\.]+", RegexOptions.Compiled);
         public readonly Regex PriceRegexItemProp = new Regex("itemprop=\"price\".*?([\\d\\,\\.]+)", RegexOptions.Compiled);
         public readonly CultureInfo Culture = CultureInfo.InvariantCulture;
-
+        public readonly DateTimeFormatInfo DateFormat = (new CultureInfo("de-DE")).DateTimeFormat;
 
         public const string CartIdPattern = "data-cart-id=\"(.+?)\"";
         public const string ArticleIdPattern = "data-article-id=\"(.+?)\"";

@@ -120,43 +120,52 @@ namespace ExpertPriceCrawler
 
         static async Task<(bool Error, decimal? Price)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
-            logger.Debug("Requesting {url}", productUrl);
-            await using var page = await browserContext.NewPageAsync();
-            await page.SetUserAgentAsync(configuration.UserAgent);
-            await page.SetJavaScriptEnabledAsync(false);
-            await page.SetRequestInterceptionAsync(true);
-            page.Request += async (_, args) =>
+            try
             {
-                var req = args.Request;
-                if (req.ResourceType != ResourceType.Document)
+                logger.Debug("Requesting {url}", productUrl);
+                await using var page = await browserContext.NewPageAsync();
+                await page.SetUserAgentAsync(configuration.UserAgent);
+                await page.SetJavaScriptEnabledAsync(false);
+                await page.SetRequestInterceptionAsync(true);
+                page.Request += async (_, args) =>
                 {
-                    await req.AbortAsync();
-                }
-                else
-                {
-                    await req.ContinueAsync();
-                }
-            };
+                    var req = args.Request;
+                    if (req.ResourceType != ResourceType.Document)
+                    {
+                        await req.AbortAsync();
+                    }
+                    else
+                    {
+                        await req.ContinueAsync();
+                    }
+                };
 
-            var retries = configuration.Retries;
-            var retryDelayInMinutes = 1;
+                var retries = configuration.Retries;
+                var retryDelayInMinutes = 1;
 
-            Response response = await page.GoToAsync(productUrl);
-            while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0) {
-                if(response.Status is System.Net.HttpStatusCode.TooManyRequests)
+                Response response = await page.GoToAsync(productUrl);
+                while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(retryDelayInMinutes + (configuration.Retries - retries)));
+                    if (response.Status is System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(retryDelayInMinutes + (configuration.Retries - retries)));
+                    }
+                    response = await page.ReloadAsync();
                 }
-                response = await page.ReloadAsync();
+
+                if (response.Status != System.Net.HttpStatusCode.OK)
+                {
+                    logger.Warning("Failed to retrieve {url} after {retries} retries: Status {status}", productUrl, configuration.Retries, (int)response.Status);
+                    logger.Debug("{body}", await page.GetContentAsync());
+                    return (true, null);
+                }
+                return (false, await FindPrice(page));
             }
-
-            if (response.Status != System.Net.HttpStatusCode.OK)
+            catch (Exception ex)
             {
-                logger.Warning("Failed to retrieve {url} after {retries} retries: Status {status}", productUrl, configuration.Retries, (int)response.Status);
-                logger.Debug("{body}", await page.GetContentAsync());
+                logger.Warning(ex, "Something unexpected happened while retrieving {}", productUrl);
                 return (true, null);
             }
-            return (false, await FindPrice(page));
         }
 
         static async Task<decimal?> FindPrice(Page page)

@@ -5,13 +5,50 @@
 
 <div>
     <h1>Anfrage registriert!</h1>
-    @if(Model.JobCount == 0)
+    @if (Model.JobCount == 0)
     {
         <div>Dein Auftrag wird nun bearbeitet</div>
-    } else
+    }
+    else
     {
-         <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
-         <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>   
+        <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
+        <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>
     }
     <div>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten</div>
+</div>
+<br />
+<div>
+    <h2>Kürzlich gesucht</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <td>Datum</td>
+                <td>Url</td>
+                <td>Ergebnis</td>
+            </tr>
+        </thead>
+        <tbody>
+            @if(Model.RecentlyCompletedJobs.Count == 0)
+            {
+                <tr>
+                    <td colspan="99">Sobald Ergebnisse vorliegen, werden diese hier angezeigt.</td>
+                </tr>
+            }
+            @foreach (var item in Model.RecentlyCompletedJobs)
+            {
+                <tr>
+                    <td style="white-space: nowrap;">@item.TimeCreated.ToString(Configuration.Instance.DateFormat)</td>
+                    <td>@item.Url</td>
+                    <td>
+                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@item.Id" aria-expanded="false" aria-controls="@item.Id">Anzeigen</button>
+                    </td>
+                </tr>
+                <tr class="collapse" id="@item.Id">
+                    <td colspan="99">
+                        @Html.Raw(item.ResultTableHtml)
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 </div>

@@ -12,11 +12,14 @@ namespace ExpertPriceCrawler.Web
         private readonly Channel<CrawlJob> jobs = Channel.CreateUnbounded<CrawlJob>();
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
-        private DateTimeFormatInfo dateFormat = (new CultureInfo("de-DE")).DateTimeFormat;
+        private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
+        private const int MAX_COMPLETED_JOBS = 10;
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
 
         public int JobCount => jobs.Reader.Count;
+
+        public List<CrawlJob> RecentlyCompletedJobs => CompletedJobs.Select(x => x.Value).ToList();
 
         public ChannelManager(ILogger<ChannelManager> logger, IOptions<SmtpServerConfig> smtpServerConfig)
         {
@@ -57,10 +60,24 @@ namespace ExpertPriceCrawler.Web
             var result = await resultTask;
             stopWatch.Stop();
             LastJobTimeTaken = stopWatch.Elapsed;
-            await SendResult(job, result);
+            var emailBody = GetEmailBody(job, result);
+            SetResult(job, GetResultTable(result));
+            await SendResult(job, emailBody);
         }
 
-        private async Task SendResult(CrawlJob job, List<Result> result)
+        private void SetResult(CrawlJob job, string resultTableHtml)
+        {
+            job.TimeCompleted = DateTime.UtcNow;
+            job.ResultTableHtml = resultTableHtml;
+            if(CompletedJobs.Count > MAX_COMPLETED_JOBS)
+            {
+                CompletedJobs.Remove(CompletedJobs.Last().Key);
+            }
+
+            CompletedJobs.Add(job.TimeCompleted, job);
+        }
+
+        private async Task SendResult(CrawlJob job, string body)
         {
             using var smtpClient = new SmtpClient(smtpServerConfig.Value.Hostname, smtpServerConfig.Value.Port)
             {
@@ -72,12 +89,7 @@ namespace ExpertPriceCrawler.Web
             var message = new MailMessage()
             {
                 Subject = "ExpertPriceCrawler: Ergebnis deiner Anfrage",
-                Body = @$"
-<h1>Ergebnis deiner Anfrage</h1>
-<h2>für {job.Url}</h2>
-<h3>Agefordert um {job.TimeCreated.ToString(dateFormat)} (UTC)</h3>
-{GetResultTable(result)}
-",
+                Body = body,
                 IsBodyHtml = true,
             };
 
@@ -89,6 +101,17 @@ namespace ExpertPriceCrawler.Web
             Configuration.Logger.Information("Sent Email to {mailAddress}", job.EmailAddress);
         }
 
+
+        private string GetEmailBody(CrawlJob job, List<Result> result)
+        {
+            return @$"
+<h1>Ergebnis deiner Anfrage</h1>
+<h2>für {job.Url}</h2>
+<h3>Agefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)}, Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
+{GetResultTable(result)}
+";
+        }
+
         private string GetResultTable(List<Result> result)
         {
             if(result.All(r => r.Price.Equals("error", StringComparison.OrdinalIgnoreCase)))
@@ -96,7 +119,7 @@ namespace ExpertPriceCrawler.Web
                 return "Leider sind zuviele Fehler aufgetreten. Dies kann daran liegen, dass Expert uns gesperrt hat. Bitte versuche es später noch einmal.";
             }
             return @"
-            <table>
+            <table class=""table"">
                 <thead>
                     <tr>
                         <th> Filial-ID </th>

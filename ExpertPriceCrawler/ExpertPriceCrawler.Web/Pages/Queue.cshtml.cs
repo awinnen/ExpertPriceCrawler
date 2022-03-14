@@ -7,8 +7,9 @@ namespace ExpertPriceCrawler.Web.Pages
     {
         private readonly ChannelManager channelManager;
 
-        public int JobCount { get; set; }
-        public TimeSpan EstimatedWaitingTime { get; set; }
+        public int JobCount { get; private set; }
+        public TimeSpan EstimatedWaitingTime { get; private set; }
+        public List<CrawlJob> RecentlyCompletedJobs { get; private set; }
 
         public QueueModel(ChannelManager channelManager)
         {
@@ -19,6 +20,7 @@ namespace ExpertPriceCrawler.Web.Pages
         {
             JobCount = channelManager.JobCount;
             EstimatedWaitingTime = channelManager.LastJobTimeTaken * (JobCount+1);
+            RecentlyCompletedJobs = channelManager.RecentlyCompletedJobs;
         }
     }
 }

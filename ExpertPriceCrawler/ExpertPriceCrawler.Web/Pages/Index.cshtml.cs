@@ -26,7 +26,7 @@ namespace ExpertPriceCrawler.Web.Pages
 
 
         [BindProperty]
-        public CrawlJob CrawlJob { get; set; }
+        public CrawlJobPost CrawlJobPost { get; set; }
         public async Task<IActionResult> OnPostAsync()
         {
             var ipaddress = HttpContext.Connection.RemoteIpAddress;
@@ -40,7 +40,7 @@ namespace ExpertPriceCrawler.Web.Pages
             }
             Configuration.Logger.Information("Processing request from {ipaddress}", ipaddress);
             memoryCache.Set(ipaddress, String.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
-            await channelManager.AddJob(CrawlJob);
+            await channelManager.AddJob(new CrawlJob(CrawlJobPost));
             return RedirectToPage("/Queue");
         }
     }
