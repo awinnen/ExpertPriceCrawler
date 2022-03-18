@@ -14,6 +14,7 @@ namespace ExpertPriceCrawler.Web
 
     public class CrawlJob
     {
+        public bool Success { get; set; }
         public Uri Url { get; set; }
         public string EmailAddress { get; set; }
         public DateTime TimeCreated { get; } = DateTime.UtcNow;

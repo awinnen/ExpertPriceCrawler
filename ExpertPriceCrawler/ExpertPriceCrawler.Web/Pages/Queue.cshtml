@@ -28,39 +28,6 @@
     }
 </div>
 <br />
-<div>
-    <h2>Kürzlich gesucht</h2>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <td>Datum (UTC)</td>
-                <td>Url</td>
-                <td>Ergebnis</td>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model.RecentlyCompletedJobs.Count == 0)
-            {
-                <tr>
-                    <td colspan="99">Sobald Ergebnisse vorliegen, werden diese hier angezeigt.</td>
-                </tr>
-            }
-            @foreach (var item in Model.RecentlyCompletedJobs)
-            {
-                var id = "result-" + item.Id.ToString("N");
-                <tr>
-                    <td style="white-space: nowrap;">@item.TimeCreated.ToString(Configuration.Instance.DateFormat)</td>
-                    <td>@item.Url</td>
-                    <td>
-                        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@id" aria-expanded="false" aria-controls="@id">Anzeigen</button>
-                    </td>
-                </tr>
-                <tr class="collapse" id="@id">
-                    <td colspan="99">
-                        @Html.Raw(item.ResultTableHtml)
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-</div>
+@{
+    await Html.RenderPartialAsync("_RecentlyCrawled");
+}

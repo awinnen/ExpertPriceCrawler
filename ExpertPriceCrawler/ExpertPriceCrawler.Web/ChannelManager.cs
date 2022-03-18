@@ -60,14 +60,15 @@ namespace ExpertPriceCrawler.Web
             stopWatch.Stop();
             LastJobTimeTaken = stopWatch.Elapsed;
             var emailBody = GetEmailBody(job, result);
-            SetResult(job, GetResultTable(result));
+            SetResult(job, !result.All(x => x.Price.Equals("error", StringComparison.OrdinalIgnoreCase)), GetResultTable(result));
             await SendResult(job, emailBody);
         }
 
-        private void SetResult(CrawlJob job, string resultTableHtml)
+        private void SetResult(CrawlJob job, bool success, string resultTableHtml)
         {
             job.TimeCompleted = DateTime.UtcNow;
             job.ResultTableHtml = resultTableHtml;
+            job.Success = success;
             if(CompletedJobs.Count > MAX_COMPLETED_JOBS)
             {
                 CompletedJobs.Remove(CompletedJobs.Last().Key);
