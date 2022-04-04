@@ -13,7 +13,7 @@ namespace ExpertPriceCrawler
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
-            uri = uri.MakeExpertUri();
+            uri = uri.NormalizeUri();
 
             await EnsureBrowserAvailable();
 
@@ -22,11 +22,11 @@ namespace ExpertPriceCrawler
             {
                 logger.Verbose("Result not in cache. Crawling with {maxParallel} parallel requests", configuration.MaxParallelRequests);
                 e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(configuration.MemoryCacheMinutes);
-                return await GetResultForUri(uri, CancellationToken.None);
+                return await GetResultForUri(uri.MakeExpertCrawlUri(), uri, CancellationToken.None);
             });
         }
 
-        private static async Task<List<Result>> GetResultForUri(Uri uri, CancellationToken cancellationToken)
+        private static async Task<List<Result>> GetResultForUri(Uri crawlUrl, Uri originalUrl, CancellationToken cancellationToken)
         {
             var errors = 0;
             try
@@ -61,8 +61,9 @@ namespace ExpertPriceCrawler
                             return;
                         }
 
-                        var branchUrl = $"{uri}?branch_id={branch.Key}";
-                        (bool error, decimal? price) = await RequestProductPageInBrowser(browserContext, branchUrl);
+                        var crawlUrlWithBranchQueryParameter = $"{crawlUrl}?branch_id={branch.Key}";
+                        var originalUrlWithBranchQueryParameter = $"{originalUrl}?branch_id={branch.Key}";
+                        (bool error, decimal? price) = await RequestProductPageInBrowser(browserContext, crawlUrlWithBranchQueryParameter);
                         browserContextPool.Push(browserContext);
                         results.TryAdd(branch.Key, new Result()
                         {
@@ -70,7 +71,7 @@ namespace ExpertPriceCrawler
                             PriceDecimal = error ? decimal.MaxValue : price ?? decimal.MaxValue -1,
                             BranchId = branch.Key,
                             BranchName = branch.Value,
-                            Url = branchUrl
+                            Url = originalUrlWithBranchQueryParameter
                         });
                         if (error)
                         {

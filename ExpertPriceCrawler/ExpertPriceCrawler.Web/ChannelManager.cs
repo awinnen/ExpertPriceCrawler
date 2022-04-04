@@ -14,6 +14,8 @@ namespace ExpertPriceCrawler.Web
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
         private const int MAX_COMPLETED_JOBS = 20;
+        private const int COOLDOWN_AFTER_CRAWL = 10;
+        private TimeSpan CooldownTimespan => TimeSpan.FromMinutes(COOLDOWN_AFTER_CRAWL);
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
 
@@ -31,7 +33,7 @@ namespace ExpertPriceCrawler.Web
         public async Task AddJob(CrawlJob job)
         {
             await jobs.Writer.WriteAsync(job);
-            Configuration.Logger.Information("Job Queued for {url}", job.Url);
+            Configuration.Logger.Information("Job Queued for {url}", job.CrawlUrl);
         }
 
         private void StartWorker()
@@ -45,7 +47,7 @@ namespace ExpertPriceCrawler.Web
                         await StartJob(job);
                     } catch(Exception ex)
                     {
-                        Configuration.Logger.Error(ex, "Error executing job for {url}", job.Url);
+                        Configuration.Logger.Error(ex, "Error executing job for {url}", job.CrawlUrl);
                     }
                 }
             });
@@ -54,14 +56,22 @@ namespace ExpertPriceCrawler.Web
         private async Task StartJob(CrawlJob job)
         {
             var stopWatch = Stopwatch.StartNew();
-            var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(job.Url) : ApiCrawler.CollectPrices(job.Url);
-            Configuration.Logger.Information("Starting Job for {url}", job.Url);
+            var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(job.CrawlUrl) : ApiCrawler.CollectPrices(job.CrawlUrl);
+            Configuration.Logger.Information("Starting Job for {url}", job.CrawlUrl);
             var result = await resultTask;
             stopWatch.Stop();
-            LastJobTimeTaken = stopWatch.Elapsed;
             var emailBody = GetEmailBody(job, result);
             SetResult(job, !result.All(x => x.Price.Equals("error", StringComparison.OrdinalIgnoreCase)), GetResultTable(result));
             await SendResult(job, emailBody);
+
+            if(stopWatch.Elapsed < CooldownTimespan)
+            {
+                await Task.Delay(CooldownTimespan - stopWatch.Elapsed);
+                LastJobTimeTaken = CooldownTimespan;
+            } else
+            {
+                LastJobTimeTaken = stopWatch.Elapsed;
+            }
         }
 
         private void SetResult(CrawlJob job, bool success, string resultTableHtml)
@@ -106,8 +116,8 @@ namespace ExpertPriceCrawler.Web
         {
             return @$"
 <h1>Ergebnis deiner Anfrage</h1>
-<h2>für {job.Url}</h2>
-<h3>Agefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)}, Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
+<h2>für {job.CrawlUrl}</h2>
+<h3>Angefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)}, Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
 {GetResultTable(result)}
 ";
         }

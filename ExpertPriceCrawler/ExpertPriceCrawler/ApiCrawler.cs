@@ -16,7 +16,7 @@ namespace ExpertPriceCrawler
 
         public static async Task<List<Result>> CollectPrices(Uri uri)
         {
-            uri = uri.MakeExpertUri();
+            uri = uri.MakeExpertCrawlUri();
 
             await EnsureBrowserAvailable();
 

@@ -15,7 +15,7 @@ namespace ExpertPriceCrawler.Web
     public class CrawlJob
     {
         public bool Success { get; set; }
-        public Uri Url { get; set; }
+        public Uri CrawlUrl { get; set; }
         public string EmailAddress { get; set; }
         public DateTime TimeCreated { get; } = DateTime.UtcNow;
         public DateTime TimeCompleted { get; set; }
@@ -24,7 +24,7 @@ namespace ExpertPriceCrawler.Web
 
         public CrawlJob(CrawlJobPost input)
         {
-            Url = new Uri(input.Url).MakeExpertUri();
+            CrawlUrl = new Uri(input.Url).NormalizeUri();
             EmailAddress = input.EmailAddress;
         }
     }

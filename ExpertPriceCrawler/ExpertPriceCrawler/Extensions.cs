@@ -8,7 +8,12 @@ namespace ExpertPriceCrawler
 {
     public static class Extensions
     {
-        public static Uri MakeExpertUri(this Uri original)
+        public static Uri MakeExpertCrawlUri(this Uri original)
+        {
+            return new Uri($"{Configuration.Instance.ExpertBaseUrl}{original.AbsolutePath}");
+        }
+
+        public static Uri NormalizeUri(this Uri original)
         {
             return new Uri($"https://www.expert.de{original.AbsolutePath}");
         }

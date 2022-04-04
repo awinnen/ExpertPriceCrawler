@@ -75,6 +75,11 @@ namespace ExpertPriceCrawler
         /// </summary>
         public Dictionary<string, string> Branches { get; set; }
 
+        /// <summary>
+        /// Defines the BaseUrl for Expert site.
+        /// </summary>
+        public string ExpertBaseUrl { get; set; } = "https://expert.de";
+
         public readonly Regex PriceRegex = new Regex(@"[\d\,\.]+", RegexOptions.Compiled);
         public readonly Regex PriceRegexItemProp = new Regex("itemprop=\"price\".*?([\\d\\,\\.]+)", RegexOptions.Compiled);
         public readonly CultureInfo Culture = CultureInfo.InvariantCulture;
