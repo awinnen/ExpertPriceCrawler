@@ -1,5 +1,6 @@
 using ExpertPriceCrawler.Web;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<GzipCompressionProvider>();
+});
+
 var configurationRoot = ExpertPriceCrawler.Configuration.Init(builder.Environment.EnvironmentName);
 builder.Services.Configure<SmtpServerConfig>(c => configurationRoot.GetSection("SmtpServer").Bind(c));
 var app = builder.Build();
@@ -28,6 +35,7 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 }
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 app.UseStaticFiles();
 
 app.UseRouting();
