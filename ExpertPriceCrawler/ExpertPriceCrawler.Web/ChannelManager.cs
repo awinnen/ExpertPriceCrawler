@@ -61,10 +61,10 @@ namespace ExpertPriceCrawler.Web
             Configuration.Logger.Information("Starting Job for {url}", job.CrawlUrl);
             var result = await resultTask;
             stopWatch.Stop();
-            var emailBody = GetEmailBody(job, result);
 
             var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase));
             SetResult(job, nonErrorResults.FirstOrDefault()?.ProductName, nonErrorResults.FirstOrDefault()?.ProductImage, nonErrorResults.Any(), GetResultTable(result));
+            var emailBody = GetEmailBody(job, result);
             await SendResult(job, emailBody);
 
             if(stopWatch.Elapsed < CooldownTimespan)
