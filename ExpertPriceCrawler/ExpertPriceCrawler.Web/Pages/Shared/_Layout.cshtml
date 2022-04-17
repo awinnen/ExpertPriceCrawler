@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/ExpertPriceCrawler.Web.styles.css" asp-append-version="true" />
+    <style>
+        table td {
+            vertical-align: middle;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -31,8 +36,12 @@
     </div>
 
     <footer class="border-top footer text-muted">
-        <div class="container">
-            ExpertPriceCrawler.Web
+        <div class="container d-flex justify-content-between">
+            <span>ExpertPriceCrawler.Web</span>
+            <span>
+                Quellcode und Konsolenanwendung verfügbar auf 
+                <a href="https://github.com/awinnen/ExpertPriceCrawler">Github</a>
+            </span>
         </div>
     </footer>
 

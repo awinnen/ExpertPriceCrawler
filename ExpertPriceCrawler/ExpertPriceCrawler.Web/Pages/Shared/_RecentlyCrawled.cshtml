@@ -8,8 +8,9 @@
     <table class="table table-striped">
         <thead>
             <tr>
+                <td>&nbsp;</td>
                 <td>Datum (UTC)</td>
-                <td>Url</td>
+                <td>Produkt</td>
                 <td>Ergebnis</td>
             </tr>
         </thead>
@@ -24,8 +25,14 @@
             {
                 var id = "result-" + item.Id.ToString("N");
                 <tr>
+                    <td width="10%">
+                        @if (!string.IsNullOrWhiteSpace(item.ProductImageUrl))
+                        {
+                            <img class="img-fluid" style="max-height: 100px;" src="@item.ProductImageUrl" />
+                        }
+                    </td>
                     <td style="white-space: nowrap;">@item.TimeCreated.ToString(Configuration.Instance.DateFormat)</td>
-                    <td>@item.CrawlUrl</td>
+                    <td>@(item.ProductName ?? item.CrawlUrl.ToString())</td>
                     <td>
                         @if (item.Success)
                         {

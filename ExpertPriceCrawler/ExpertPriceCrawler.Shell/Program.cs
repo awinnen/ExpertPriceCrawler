@@ -11,7 +11,8 @@ public static class Program
         Console.OutputEncoding = Encoding.UTF8;
 
         var uri = ReadUrl();
-        var branchPrices = await (Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(uri) : ApiCrawler.CollectPrices(uri));
+        IProductCrawler crawler = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? new BrowserCrawler() : new ApiCrawler();
+        var branchPrices = await crawler.CollectPrices(uri);
 
         int done = 0;
         int printRowCount = 10;

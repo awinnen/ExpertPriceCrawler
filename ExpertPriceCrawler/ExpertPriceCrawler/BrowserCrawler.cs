@@ -5,13 +5,13 @@ using System.Collections.Concurrent;
 
 namespace ExpertPriceCrawler
 {
-    public static class BrowserCrawler
+    public class BrowserCrawler: IProductCrawler
     {
         private static ILogger logger => Configuration.Logger;
         private static ConfigurationValues configuration => Configuration.Instance;
         private static IMemoryCache memoryCache = Configuration.MemoryCache;
 
-        public static async Task<List<Result>> CollectPrices(Uri uri)
+        public async Task<List<Result>> CollectPrices(Uri uri)
         {
             uri = uri.NormalizeUri();
 
@@ -63,7 +63,7 @@ namespace ExpertPriceCrawler
 
                         var crawlUrlWithBranchQueryParameter = $"{crawlUrl}?branch_id={branch.Key}";
                         var originalUrlWithBranchQueryParameter = $"{originalUrl}?branch_id={branch.Key}";
-                        (bool error, decimal? price) = await RequestProductPageInBrowser(browserContext, crawlUrlWithBranchQueryParameter);
+                        (bool error, decimal? price, string productName, string productImageUrl) = await RequestProductPageInBrowser(browserContext, crawlUrlWithBranchQueryParameter);
                         browserContextPool.Push(browserContext);
                         results.TryAdd(branch.Key, new Result()
                         {
@@ -71,7 +71,9 @@ namespace ExpertPriceCrawler
                             PriceDecimal = error ? decimal.MaxValue : price ?? decimal.MaxValue -1,
                             BranchId = branch.Key,
                             BranchName = branch.Value,
-                            Url = originalUrlWithBranchQueryParameter
+                            Url = originalUrlWithBranchQueryParameter,
+                            ProductImage = productImageUrl,
+                            ProductName = productName,
                         });
                         if (error)
                         {
@@ -119,7 +121,7 @@ namespace ExpertPriceCrawler
             return browserContextPool;
         }
 
-        static async Task<(bool Error, decimal? Price)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
+        static async Task<(bool Error, decimal? Price, string productName, string imageUrl)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
             try
             {
@@ -158,15 +160,24 @@ namespace ExpertPriceCrawler
                 {
                     logger.Warning("Failed to retrieve {url} after {retries} retries: Status {status}", productUrl, configuration.Retries, (int)response.Status);
                     logger.Debug("{body}", await page.GetContentAsync());
-                    return (true, null);
+                    return (true, null, null, null);
                 }
-                return (false, await FindPrice(page));
+                var (name, image) = await FindProductNameAndImage(page);
+                return (false, await FindPrice(page), name, image);
             }
             catch (Exception ex)
             {
                 logger.Warning(ex, "Something unexpected happened while retrieving {}", productUrl);
-                return (true, null);
+                return (true, null, null, null);
             }
+        }
+
+        static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(Page page)
+        {
+            var handle = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
+            var propertyProductImageUrl = await handle.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handle);
+            var propertyProductName = await handle.GetPropertyAsync("alt");
+            return (await propertyProductName.JsonValueAsync<string>(), propertyProductImageUrl);
         }
 
         static async Task<decimal?> FindPrice(Page page)

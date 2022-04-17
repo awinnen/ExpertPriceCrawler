@@ -56,12 +56,15 @@ namespace ExpertPriceCrawler.Web
         private async Task StartJob(CrawlJob job)
         {
             var stopWatch = Stopwatch.StartNew();
-            var resultTask = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? BrowserCrawler.CollectPrices(job.CrawlUrl) : ApiCrawler.CollectPrices(job.CrawlUrl);
+            IProductCrawler crawler = Configuration.Instance.CrawlerType == nameof(BrowserCrawler) ? new BrowserCrawler() : new ApiCrawler();
+            var resultTask = crawler.CollectPrices(job.CrawlUrl);
             Configuration.Logger.Information("Starting Job for {url}", job.CrawlUrl);
             var result = await resultTask;
             stopWatch.Stop();
             var emailBody = GetEmailBody(job, result);
-            SetResult(job, !result.All(x => x.Price.Equals("error", StringComparison.OrdinalIgnoreCase)), GetResultTable(result));
+
+            var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase));
+            SetResult(job, nonErrorResults.FirstOrDefault()?.ProductName, nonErrorResults.FirstOrDefault()?.ProductImage, nonErrorResults.Any(), GetResultTable(result));
             await SendResult(job, emailBody);
 
             if(stopWatch.Elapsed < CooldownTimespan)
@@ -74,11 +77,13 @@ namespace ExpertPriceCrawler.Web
             }
         }
 
-        private void SetResult(CrawlJob job, bool success, string resultTableHtml)
+        private void SetResult(CrawlJob job, string productName, string productImageUrl, bool success, string resultTableHtml)
         {
             job.TimeCompleted = DateTime.UtcNow;
             job.ResultTableHtml = resultTableHtml;
             job.Success = success;
+            job.ProductName = productName;
+            job.ProductImageUrl = productImageUrl;
             if(CompletedJobs.Count > MAX_COMPLETED_JOBS)
             {
                 CompletedJobs.Remove(CompletedJobs.Last().Key);
@@ -116,8 +121,8 @@ namespace ExpertPriceCrawler.Web
         {
             return @$"
 <h1>Ergebnis deiner Anfrage</h1>
-<h2>für {job.CrawlUrl}</h2>
-<h3>Angefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)}, Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
+<h2>für {job.ProductName ?? job.CrawlUrl.ToString()}</h2>
+<h3>Angefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)} (UTC), Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
 {GetResultTable(result)}
 ";
         }

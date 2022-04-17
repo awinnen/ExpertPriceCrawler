@@ -8,13 +8,13 @@ using System.Text.Json;
 
 namespace ExpertPriceCrawler
 {
-    public static class ApiCrawler
+    public class ApiCrawler: IProductCrawler
     {
         private static ILogger logger => Configuration.Logger;
         private static ConfigurationValues configuration => Configuration.Instance;
         private static IMemoryCache memoryCache = Configuration.MemoryCache;
 
-        public static async Task<List<Result>> CollectPrices(Uri uri)
+        public async Task<List<Result>> CollectPrices(Uri uri)
         {
             uri = uri.MakeExpertCrawlUri();
 

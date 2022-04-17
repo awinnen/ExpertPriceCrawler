@@ -21,6 +21,8 @@ namespace ExpertPriceCrawler.Web
         public DateTime TimeCompleted { get; set; }
         public Guid Id { get; } = Guid.NewGuid();
         public string ResultTableHtml { get; set; }
+        public string ProductName { get; set; }
+        public string ProductImageUrl { get; set; }
 
         public CrawlJob(CrawlJobPost input)
         {
