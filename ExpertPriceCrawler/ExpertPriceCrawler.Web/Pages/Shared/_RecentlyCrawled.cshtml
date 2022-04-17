@@ -4,51 +4,52 @@
     var Model = channelManager.RecentlyCompletedJobs;
 }
 <div>
-    <h2>Kürzlich gesucht</h2>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <td>&nbsp;</td>
-                <td>Datum (UTC)</td>
-                <td>Produkt</td>
-                <td>Ergebnis</td>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model.Count == 0)
-            {
-                <tr>
-                    <td colspan="99">Sobald Ergebnisse vorliegen, werden diese hier angezeigt.</td>
-                </tr>
-            }
+    @if (Model.Count > 0)
+    {
+        <h2>Kürzlich gesucht</h2>
+
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
             @foreach (var item in Model)
             {
-                var id = "result-" + item.Id.ToString("N");
-                <tr>
-                    <td width="10%">
-                        @if (!string.IsNullOrWhiteSpace(item.ProductImageUrl))
-                        {
-                            <img class="img-fluid" style="max-height: 100px;" src="@item.ProductImageUrl" />
-                        }
-                    </td>
-                    <td style="white-space: nowrap;">@item.TimeCreated.ToString(Configuration.Instance.DateFormat)</td>
-                    <td>@(item.ProductName ?? item.CrawlUrl.ToString())</td>
-                    <td>
-                        @if (item.Success)
-                        {
-                            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#@id" aria-expanded="false" aria-controls="@id">Anzeigen</button>
-                        } else
-                        {
-                            <span>ERROR</span>
-                        }
-                    </td>
-                </tr>
-                <tr class="collapse" id="@id">
-                    <td colspan="99">
-                        @Html.Raw(item.ResultTableHtml)
-                    </td>
-                </tr>
+                <div class="col">
+                    <div class="card">
+                        <img src="@item.ProductImageUrl" class="card-img-top img-fluid" style="width: fit-content; margin: 0 auto;" alt="@item.ProductName">
+                        <div class="card-body">
+                            <h5 class="card-title">@item.ProductName</h5>
+                            @if (item.Success)
+                            {
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#result-@item.Id.ToString("N")" class="btn btn-primary">Preise zeigen</a>
+                            }
+                            else
+                            {
+                                <span>Error</span>
+                            }
+                        </div>
+                    </div>
+                </div>
             }
-        </tbody>
-    </table>
+        </div>
+
+        @foreach (var item in Model)
+        {
+            if (!item.Success)
+            {
+                continue;
+            }
+            <div class="modal fade" id="result-@item.Id.ToString("N")" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="staticBackdropLabel">Preise für @(item.ProductName ?? item.CrawlUrl.ToString())</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            @Html.Raw(item.ResultTableHtml)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+    }
 </div>
