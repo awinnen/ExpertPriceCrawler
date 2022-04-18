@@ -174,10 +174,11 @@ namespace ExpertPriceCrawler
 
         static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(Page page)
         {
-            var handle = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
-            var propertyProductImageUrl = await handle.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handle);
-            var propertyProductName = await handle.GetPropertyAsync("alt");
-            return (await propertyProductName.JsonValueAsync<string>(), propertyProductImageUrl);
+            var handleImage = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
+            var handleTitle = await page.WaitForSelectorAsync("head title", new WaitForSelectorOptions() { Timeout = 1000 });
+            var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handleImage);
+            var productName = await handleTitle.EvaluateFunctionAsync<string>("(el) => el.innerText", handleTitle);
+            return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim(), productImageUrl);
         }
 
         static async Task<decimal?> FindPrice(Page page)
