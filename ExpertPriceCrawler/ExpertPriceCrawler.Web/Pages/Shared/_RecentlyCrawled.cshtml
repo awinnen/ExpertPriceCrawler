@@ -2,8 +2,15 @@
 
 @{
     var Model = channelManager.RecentlyCompletedJobs;
+    var queueCount = channelManager.JobCount;
 }
 <div>
+    @if (queueCount > 0)
+    {
+        <div>
+            <span>Derzeit sind @queueCount Anfragen in der Warteschlange</span>
+        </div>
+    }
     @if (Model.Count > 0)
     {
         <h2>Kürzlich gesucht</h2>
@@ -13,9 +20,12 @@
             {
                 <div class="col">
                     <div class="card">
-                        <img src="@item.ProductImageUrl" class="card-img-top img-fluid" style="max-height: 200px; width: fit-content; margin: 0 auto;" alt="@item.ProductName">
+                        <picture class="card-img-top" style="display: flex; align-items: center; height: 300px">
+                            <img src="@item.ProductImageUrl" class="img-fluid" style="width: auto; max-height: 100%; margin: 0 auto; display: block;" alt="@item.ProductName">
+                        </picture>
                         <div class="card-body">
                             <h5 class="card-title">@item.ProductName</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">@item.TimeCreated.ToGermanDateTimezoneString() (@((int)Math.Ceiling((item.TimeCompleted - item.TimeCreated).TotalMinutes))min)</h6>
                             @if (item.Success)
                             {
                                 <a href="#" data-bs-toggle="modal" data-bs-target="#result-@item.Id.ToString("N")" class="btn btn-primary">Preise zeigen</a>

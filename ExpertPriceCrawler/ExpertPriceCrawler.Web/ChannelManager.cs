@@ -13,7 +13,7 @@ namespace ExpertPriceCrawler.Web
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
-        private const int MAX_COMPLETED_JOBS = 20;
+        private const int MAX_COMPLETED_JOBS = 30;
         private const int COOLDOWN_AFTER_CRAWL = 10;
         private TimeSpan CooldownTimespan => TimeSpan.FromMinutes(COOLDOWN_AFTER_CRAWL);
 
@@ -33,7 +33,7 @@ namespace ExpertPriceCrawler.Web
         public async Task AddJob(CrawlJob job)
         {
             await jobs.Writer.WriteAsync(job);
-            Configuration.Logger.Information("Job Queued for {url}", job.CrawlUrl);
+            Configuration.Logger.Information("Job Queued for {url}, {email}", job.CrawlUrl, job.EmailAddress);
         }
 
         private void StartWorker()
@@ -84,9 +84,17 @@ namespace ExpertPriceCrawler.Web
             job.Success = success;
             job.ProductName = productName;
             job.ProductImageUrl = productImageUrl;
+
+
             if(CompletedJobs.Count > MAX_COMPLETED_JOBS)
             {
                 CompletedJobs.Remove(CompletedJobs.Last().Key);
+            }
+
+            var sameProductAlreadyCrawled = CompletedJobs.Any(x => x.Value.CrawlUrl.Equals(job.CrawlUrl));
+            if(sameProductAlreadyCrawled)
+            {
+                CompletedJobs.Remove(CompletedJobs.First(x => x.Value.CrawlUrl.Equals(job.CrawlUrl)).Key);
             }
 
             CompletedJobs.Add(job.TimeCompleted, job);
@@ -122,7 +130,7 @@ namespace ExpertPriceCrawler.Web
             return @$"
 <h1>Ergebnis deiner Anfrage</h1>
 <h2>für {job.ProductName ?? job.CrawlUrl.ToString()}</h2>
-<h3>Angefordert: {job.TimeCreated.ToString(Configuration.Instance.DateFormat)} (UTC), Fertiggestellt: {DateTime.UtcNow.ToString(Configuration.Instance.DateFormat)} (UTC)</h3>
+<h3>Angefordert: {job.TimeCreated.ToGermanDateTimezoneString()}, Fertiggestellt: {DateTime.UtcNow.ToGermanDateTimezoneString()}</h3>
 {GetResultTable(result)}
 ";
         }

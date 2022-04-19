@@ -17,5 +17,10 @@ namespace ExpertPriceCrawler
         {
             return new Uri($"https://www.expert.de{original.AbsolutePath}");
         }
+
+        public static string ToGermanDateTimezoneString(this DateTime dateTime)
+        {
+            return TimeZoneInfo.ConvertTime(dateTime, Configuration.Instance.GermanTimeZoneInfo).ToString(Configuration.Instance.GermanDateFormatInfo);
+        }
     }
 }
