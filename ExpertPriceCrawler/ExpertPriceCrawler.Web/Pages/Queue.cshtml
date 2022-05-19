@@ -17,8 +17,8 @@
             <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>
         }
         <div>
-            <p>Sobald das Ergebnis vorliegt, senden wir dir eine Email. Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten</p>
-            <p>Bitte auch den SPAM-Ordner prüfen!</p>
+            <p>Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten. Anschließend findest du dein Ergebnis in der Liste unten.</p>
+            <p>Sofern du eine Emailadresse angegeben hast, schicken wir dir das Ergebnis auch per Email. Bitte dann auch den SPAM-Ordner prüfen!</p>
         </div>
     }
     else if(Model.JobIdPresent)

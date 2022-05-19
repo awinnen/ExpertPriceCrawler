@@ -4,6 +4,31 @@
     var Model = channelManager.RecentlyCompletedJobs;
     var queueCount = channelManager.JobCount;
 }
+<style>
+    .card {
+        height: 100%;
+    }
+
+    .card-img-top {
+        display: flex;
+        align-items: center;
+        height: 300px;
+    }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+
+    .img-fluid {
+        width: auto;
+        max-height: 100%;
+        margin: 0 auto;
+        display: block;
+    }
+</style>
+
 <div>
     @if (queueCount > 0)
     {
@@ -14,21 +39,32 @@
     @if (Model.Count > 0)
     {
         <h2>Kürzlich gesucht</h2>
-
+        <div class="mb-3 d-flex justify-content-end">
+            <input style="width: 200px;" id="filterInput" class="form-control" type="text" placeholder="Suchbegriff" oninput="filter()">
+        </div>
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
             @foreach (var item in Model)
             {
-                <div class="col">
+                <div class="col" data-product="@item.ProductName">
                     <div class="card">
-                        <picture class="card-img-top" style="display: flex; align-items: center; height: 300px">
-                            <img src="@item.ProductImageUrl" class="img-fluid" style="width: auto; max-height: 100%; margin: 0 auto; display: block;" alt="@item.ProductName">
+                        <picture class="card-img-top">
+                            <img src="@item.ProductImageUrl" class="img-fluid" alt="@item.ProductName">
                         </picture>
                         <div class="card-body">
                             <h5 class="card-title">@item.ProductName</h5>
                             <h6 class="card-subtitle mb-2 text-muted">@item.TimeCreated.ToGermanDateTimezoneString() (@((int)Math.Ceiling((item.TimeCompleted - item.TimeCreated).TotalMinutes))min)</h6>
                             @if (item.Success)
                             {
-                                <a href="#" data-bs-toggle="modal" data-bs-target="#result-@item.Id.ToString("N")" class="btn btn-primary">Preise zeigen</a>
+                                <div>
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#result-@item.Id.ToString("N")" class="btn btn-primary">Preise zeigen</a>
+                                    <form class="d-inline-block" method="post" action="/">
+                                        <input type="hidden" name="CrawlJobPost.Url" value="@item.CrawlUrl" />
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-primary" type="submit" title="Aktualisieren">
+                                            &#128472;
+                                        </button>
+                                    </form>
+                                </div>
                             }
                             else
                             {
@@ -63,3 +99,17 @@
 
     }
 </div>
+
+<script>
+    function filter() {
+        const filterInput = document.getElementById("filterInput");
+        const items = document.querySelectorAll('[data-product]');
+        for (const item of items) {
+            if (item.getAttribute("data-product").toLowerCase().includes(filterInput.value)) {
+                item.style.display = "";
+            } else {
+                item.style.display = "none";
+            }
+        }
+    }
+</script>

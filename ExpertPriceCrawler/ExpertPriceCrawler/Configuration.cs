@@ -66,6 +66,11 @@ namespace ExpertPriceCrawler
         public int MemoryCacheMinutes { get; set; }
 
         /// <summary>
+        /// Path + filename of file to store crawlhistory to.
+        /// </summary>
+        public string CompletedJobsJsonFilePath { get; set; } = "completedjobs.json";
+
+        /// <summary>
         /// Options for Puppeteer launcher
         /// </summary>
         public LaunchOptions PuppeteerLaunchOptions { get; set; }

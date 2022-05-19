@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Mail;
+using System.Text.Json;
 using System.Threading.Channels;
 
 namespace ExpertPriceCrawler.Web
@@ -13,7 +14,7 @@ namespace ExpertPriceCrawler.Web
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
-        private const int MAX_COMPLETED_JOBS = 30;
+        private const int MAX_COMPLETED_JOBS = 64;
         private const int COOLDOWN_AFTER_CRAWL = 10;
         private TimeSpan CooldownTimespan => TimeSpan.FromMinutes(COOLDOWN_AFTER_CRAWL);
 
@@ -27,6 +28,7 @@ namespace ExpertPriceCrawler.Web
         {
             this.logger = logger;
             this.smtpServerConfig = smtpServerConfig;
+            InitializeCompletedJobsList();
             StartWorker();
         }
 
@@ -34,6 +36,38 @@ namespace ExpertPriceCrawler.Web
         {
             await jobs.Writer.WriteAsync(job);
             Configuration.Logger.Information("Job Queued for {url}, {email}", job.CrawlUrl, job.EmailAddress);
+        }
+
+        private void InitializeCompletedJobsList()
+        {
+            try
+            {
+                var list = JsonSerializer.Deserialize<Dictionary<DateTime, CrawlJob>>(File.ReadAllText(Configuration.Instance.CompletedJobsJsonFilePath));
+                foreach(var entry in list)
+                {
+                    CompletedJobs.TryAdd(entry.Key, entry.Value);
+                }
+            }
+            catch (Exception exception)
+            {
+                Configuration.Logger.Warning(exception, "Could not reconstruct CompletedJobs List.");
+                try
+                {
+                    File.Delete(Configuration.Instance.CompletedJobsJsonFilePath);
+                }
+                catch { }
+            }
+        }
+
+        private void WriteCompletedJobsList()
+        {
+            try
+            {
+                File.WriteAllText(Configuration.Instance.CompletedJobsJsonFilePath, JsonSerializer.Serialize(CompletedJobs));
+            } catch (Exception exception)
+            {
+                Configuration.Logger.Warning(exception, "Could not write CompletedJobs List.");
+            }
         }
 
         private void StartWorker()
@@ -64,8 +98,12 @@ namespace ExpertPriceCrawler.Web
 
             var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase));
             SetResult(job, nonErrorResults.FirstOrDefault()?.ProductName, nonErrorResults.FirstOrDefault()?.ProductImage, nonErrorResults.Any(), GetResultTable(result));
-            var emailBody = GetEmailBody(job, result);
-            await SendResult(job, emailBody);
+
+            if (!string.IsNullOrWhiteSpace(job.EmailAddress))
+            {
+                var emailBody = GetEmailBody(job, result);
+                await SendResult(job, emailBody);
+            }
 
             if(stopWatch.Elapsed < CooldownTimespan)
             {
@@ -86,7 +124,7 @@ namespace ExpertPriceCrawler.Web
             job.ProductImageUrl = productImageUrl;
 
 
-            if(CompletedJobs.Count > MAX_COMPLETED_JOBS)
+            if(CompletedJobs.Count >= MAX_COMPLETED_JOBS)
             {
                 CompletedJobs.Remove(CompletedJobs.Last().Key);
             }
@@ -98,6 +136,8 @@ namespace ExpertPriceCrawler.Web
             }
 
             CompletedJobs.Add(job.TimeCompleted, job);
+
+            WriteCompletedJobsList();
         }
 
         private async Task SendResult(CrawlJob job, string body)

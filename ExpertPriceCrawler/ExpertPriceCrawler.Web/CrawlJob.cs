@@ -8,8 +8,9 @@ namespace ExpertPriceCrawler.Web
     {
         [Required]
         public string Url { get; set; } = null!;
-        [Required]
-        public string EmailAddress { get; set; } = null!;
+
+        [EmailAddress]
+        public string? EmailAddress { get; set; } = null!;
     }
 
     public class CrawlJob
@@ -29,5 +30,7 @@ namespace ExpertPriceCrawler.Web
             CrawlUrl = new Uri(input.Url).NormalizeUri();
             EmailAddress = input.EmailAddress;
         }
+
+        public CrawlJob() { }
     }
 }
