@@ -29,10 +29,14 @@ namespace ExpertPriceCrawler.Web.Pages
         public CrawlJobPost CrawlJobPost { get; set; }
         public async Task<IActionResult> OnPostAsync()
         {
-            var ipaddress = HttpContext.Connection.RemoteIpAddress;
+            var ipaddress = HttpContext.Connection.RemoteIpAddress.ToString();
             if (memoryCache.TryGetValue(ipaddress, out var _)){
                 Configuration.Logger.Information("Blocking Request from {ipaddress}", ipaddress);
                 return Content($"Leider hast du schon zu viele Anfragen gestellt. Probiere es in {rateLimitInMinutes} Minuten noch einmal.");
+            } else if (memoryCache.TryGetValue(CrawlJobPost.Url, out _))
+            {
+                Configuration.Logger.Information("Blocking Request for {url} due to ratelimit from {ipaddress}", CrawlJobPost.Url, ipaddress);
+                return Content($"Dieses Produkt wurde erst kürzlich angefragt. Probiere es in {rateLimitInMinutes} Minuten noch einmal.");
             }
             if(!ModelState.IsValid)
             {
@@ -40,6 +44,7 @@ namespace ExpertPriceCrawler.Web.Pages
             }
             Configuration.Logger.Information("Processing request from {ipaddress}", ipaddress);
             memoryCache.Set(ipaddress, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
+            memoryCache.Set(CrawlJobPost.Url, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
             var job = new CrawlJob(CrawlJobPost);
             await channelManager.AddJob(job);
             return RedirectToPage("/Queue", new { job.Id });
