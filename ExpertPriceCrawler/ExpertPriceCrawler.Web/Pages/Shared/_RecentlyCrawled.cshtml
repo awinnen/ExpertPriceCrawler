@@ -105,7 +105,7 @@
         const filterInput = document.getElementById("filterInput");
         const items = document.querySelectorAll('[data-product]');
         for (const item of items) {
-            if (item.getAttribute("data-product").toLowerCase().includes(filterInput.value)) {
+            if (item.getAttribute("data-product").toLowerCase().includes(filterInput.value.toLowerCase())) {
                 item.style.display = "";
             } else {
                 item.style.display = "none";
