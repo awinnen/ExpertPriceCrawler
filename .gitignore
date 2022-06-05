@@ -351,3 +351,4 @@ MigrationBackup/
 ExpertPriceCrawler/ExpertPriceCrawler.Web/.local-chromium
 ExpertPriceCrawler/ExpertPriceCrawler.Web/GPUCache
 ExpertPriceCrawler/ExpertPriceCrawler.Web/completedjobs.json
+ExpertPriceCrawler/publish webservice.ps1
