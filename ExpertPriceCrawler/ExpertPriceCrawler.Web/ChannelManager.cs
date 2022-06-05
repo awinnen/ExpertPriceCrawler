@@ -201,11 +201,12 @@ namespace ExpertPriceCrawler.Web
 
         private string WriteLine(Result entry)
         {
+            var exhibitionString = entry.IsExhibition ? " (Aussteller)" : string.Empty;
             return $@"
                 <tr>
                         <td> {entry.BranchId} </td>
                         <td> {entry.BranchName} </td>
-                        <td> {entry.Price} </td>
+                        <td> {entry.Price}{exhibitionString }</td>
                         <td>
                             <a href=""{entry.Url}"" target=""_blank"" rel=""noreferrer""> Zum Shop </a>
                         </td>

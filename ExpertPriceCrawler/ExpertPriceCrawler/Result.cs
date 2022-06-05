@@ -13,5 +13,6 @@
         public decimal PriceDecimal { get; set; }
         public string ProductName { get; set; }
         public string ProductImage { get; set; }
+        public bool IsExhibition { get; set; }
     }
 }

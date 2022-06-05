@@ -63,12 +63,13 @@ namespace ExpertPriceCrawler
 
                         var crawlUrlWithBranchQueryParameter = $"{crawlUrl}?branch_id={branch.Key}";
                         var originalUrlWithBranchQueryParameter = $"{originalUrl}?branch_id={branch.Key}";
-                        (bool error, decimal? price, string productName, string productImageUrl) = await RequestProductPageInBrowser(browserContext, crawlUrlWithBranchQueryParameter);
+                        (bool error, decimal? price, bool isExhibition, string productName, string productImageUrl) = await RequestProductPageInBrowser(browserContext, crawlUrlWithBranchQueryParameter);
                         browserContextPool.Push(browserContext);
                         results.TryAdd(branch.Key, new Result()
                         {
                             Price = error ? "ERROR" : price is not null ? price.ToString() + "€" : "N/A",
                             PriceDecimal = error ? decimal.MaxValue : price ?? decimal.MaxValue -1,
+                            IsExhibition = isExhibition,
                             BranchId = branch.Key,
                             BranchName = branch.Value,
                             Url = originalUrlWithBranchQueryParameter,
@@ -121,7 +122,7 @@ namespace ExpertPriceCrawler
             return browserContextPool;
         }
 
-        static async Task<(bool Error, decimal? Price, string productName, string imageUrl)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
+        static async Task<(bool Error, decimal? Price, bool isExhibition, string productName, string imageUrl)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
         {
             try
             {
@@ -160,15 +161,15 @@ namespace ExpertPriceCrawler
                 {
                     logger.Warning("Failed to retrieve {url} after {retries} retries: Status {status}", productUrl, configuration.Retries, (int)response.Status);
                     logger.Debug("{body}", await page.GetContentAsync());
-                    return (true, null, null, null);
+                    return (true, null, false, null, null);
                 }
                 var (name, image) = await FindProductNameAndImage(page);
-                return (false, await FindPrice(page), name, image);
+                return (false, await FindPrice(page), await FindExhibitionStatus(page), name, image);
             }
             catch (Exception ex)
             {
                 logger.Warning(ex, "Something unexpected happened while retrieving {}", productUrl);
-                return (true, null, null, null);
+                return (true, null, false, null, null);
             }
         }
 
@@ -179,6 +180,19 @@ namespace ExpertPriceCrawler
             var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handleImage);
             var productName = await handleTitle.EvaluateFunctionAsync<string>("(el) => el.innerText", handleTitle);
             return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim(), productImageUrl);
+        }
+
+        static async Task<bool> FindExhibitionStatus(Page page)
+        {
+            try
+            {
+                var handle = await page.WaitForSelectorAsync(".widget-ArticleExhibit-info", new WaitForSelectorOptions() { Timeout = 10 });
+                return true;
+            }
+            catch(Exception e)
+            {
+                return false;
+            }
         }
 
         static async Task<decimal?> FindPrice(Page page)
