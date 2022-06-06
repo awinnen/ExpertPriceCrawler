@@ -15,7 +15,7 @@ namespace ExpertPriceCrawler.Web
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
         private const int MAX_COMPLETED_JOBS = 64;
-        private const int COOLDOWN_AFTER_CRAWL = 10;
+        private const int COOLDOWN_AFTER_CRAWL = 5;
         private TimeSpan CooldownTimespan => TimeSpan.FromMinutes(COOLDOWN_AFTER_CRAWL);
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
@@ -73,15 +73,18 @@ namespace ExpertPriceCrawler.Web
         private void StartWorker()
         {
             Task.Run(async () => {
-                while(true)
+                while(await jobs.Reader.WaitToReadAsync())
                 {
-                    var job = await jobs.Reader.ReadAsync();
-                    try
+                    while (jobs.Reader.TryRead(out var job))
                     {
-                        await StartJob(job);
-                    } catch(Exception ex)
-                    {
-                        Configuration.Logger.Error(ex, "Error executing job for {url}", job.CrawlUrl);
+                        try
+                        {
+                            await StartJob(job);
+                        }
+                        catch (Exception ex)
+                        {
+                            Configuration.Logger.Error(ex, "Error executing job for {url}", job.CrawlUrl);
+                        }
                     }
                 }
             });
@@ -123,12 +126,6 @@ namespace ExpertPriceCrawler.Web
             job.ProductName = productName;
             job.ProductImageUrl = productImageUrl;
 
-
-            if(CompletedJobs.Count >= MAX_COMPLETED_JOBS)
-            {
-                CompletedJobs.Remove(CompletedJobs.Last().Key);
-            }
-
             var sameProductAlreadyCrawled = CompletedJobs.Any(x => x.Value.CrawlUrl.Equals(job.CrawlUrl));
             if(sameProductAlreadyCrawled)
             {
@@ -136,6 +133,12 @@ namespace ExpertPriceCrawler.Web
             }
 
             CompletedJobs.Add(job.TimeCompleted, job);
+
+
+            if (CompletedJobs.Count > MAX_COMPLETED_JOBS)
+            {
+                CompletedJobs.Remove(CompletedJobs.Last().Key);
+            }
 
             WriteCompletedJobsList();
         }
