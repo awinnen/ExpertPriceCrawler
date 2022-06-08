@@ -17,10 +17,10 @@ namespace ExpertPriceCrawler.Web
     {
         public bool Success { get; set; }
         public Uri CrawlUrl { get; set; }
-        public string EmailAddress { get; set; }
-        public DateTime TimeCreated { get; } = DateTime.UtcNow;
+        public List<string> EmailAddress { get; set; } = new List<string>();
+        public DateTime TimeCreated { get; set; } = DateTime.UtcNow;
         public DateTime TimeCompleted { get; set; }
-        public Guid Id { get; } = Guid.NewGuid();
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string ResultTableHtml { get; set; }
         public string ProductName { get; set; }
         public string ProductImageUrl { get; set; }
@@ -28,7 +28,9 @@ namespace ExpertPriceCrawler.Web
         public CrawlJob(CrawlJobPost input)
         {
             CrawlUrl = new Uri(input.Url).NormalizeUri();
-            EmailAddress = input.EmailAddress;
+            if(!string.IsNullOrWhiteSpace(input.EmailAddress)) {
+                EmailAddress.Add(input.EmailAddress);
+            }
         }
 
         public CrawlJob() { }

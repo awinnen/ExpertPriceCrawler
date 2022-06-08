@@ -12,6 +12,7 @@ namespace ExpertPriceCrawler.Web.Pages
         public List<CrawlJob> RecentlyCompletedJobs { get; private set; }
         public bool JobCompleted { get; private set; }
         public bool JobIdPresent { get; private set; }
+        public int QueuePosition { get; private set; }
 
         public QueueModel(ChannelManager channelManager)
         {
@@ -27,6 +28,9 @@ namespace ExpertPriceCrawler.Web.Pages
             {
                 JobIdPresent = true;
                 JobCompleted = RecentlyCompletedJobs.Any(x => x.Id.ToString().Equals(jobIdFromQuery.ToString(), StringComparison.OrdinalIgnoreCase));
+                var jobInQueue = channelManager.JobsInQueue.FirstOrDefault(j => j.Id.ToString().Equals(jobIdFromQuery, StringComparison.OrdinalIgnoreCase));
+                QueuePosition = jobInQueue is null ? JobCount : Array.IndexOf(channelManager.JobsInQueue, jobInQueue) + 1;
+                EstimatedWaitingTime = channelManager.LastJobTimeTaken * QueuePosition;
             }
         }
     }

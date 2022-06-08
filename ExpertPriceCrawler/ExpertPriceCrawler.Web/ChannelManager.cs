@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -10,7 +11,7 @@ namespace ExpertPriceCrawler.Web
 {
     public class ChannelManager
     {
-        private readonly Channel<CrawlJob> jobs = Channel.CreateUnbounded<CrawlJob>();
+        private readonly BlockingCollection<CrawlJob> jobs = new BlockingCollection<CrawlJob>(new ConcurrentQueue<CrawlJob>());
         private readonly ILogger<ChannelManager> logger;
         private readonly IOptions<SmtpServerConfig> smtpServerConfig;
         private readonly SortedList<DateTime, CrawlJob> CompletedJobs = new SortedList<DateTime, CrawlJob>(Comparer<DateTime>.Create((x, y) => y.CompareTo(x)));
@@ -20,7 +21,9 @@ namespace ExpertPriceCrawler.Web
 
         public TimeSpan LastJobTimeTaken { get; private set; } = TimeSpan.FromMinutes(15);
 
-        public int JobCount => jobs.Reader.Count;
+        public int JobCount => jobs.Count;
+
+        public CrawlJob[] JobsInQueue => jobs.ToArray();
 
         public List<CrawlJob> RecentlyCompletedJobs => CompletedJobs.Select(x => x.Value).ToList();
 
@@ -34,7 +37,7 @@ namespace ExpertPriceCrawler.Web
 
         public async Task AddJob(CrawlJob job)
         {
-            await jobs.Writer.WriteAsync(job);
+            jobs.Add(job);
             Configuration.Logger.Information("Job Queued for {url}, {email}", job.CrawlUrl, job.EmailAddress);
         }
 
@@ -73,20 +76,18 @@ namespace ExpertPriceCrawler.Web
         private void StartWorker()
         {
             Task.Run(async () => {
-                while(await jobs.Reader.WaitToReadAsync())
+                while (jobs.TryTake(out var job, TimeSpan.FromMilliseconds(-1)))
                 {
-                    while (jobs.Reader.TryRead(out var job))
+                    try
                     {
-                        try
-                        {
-                            await StartJob(job);
-                        }
-                        catch (Exception ex)
-                        {
-                            Configuration.Logger.Error(ex, "Error executing job for {url}", job.CrawlUrl);
-                        }
+                        await StartJob(job);
+                    }
+                    catch (Exception ex)
+                    {
+                        Configuration.Logger.Error(ex, "Error executing job for {url}", job.CrawlUrl);
                     }
                 }
+                Configuration.Logger.Information("Worker finished. No Jobs left in Queue.");
             });
         }
 
@@ -102,7 +103,7 @@ namespace ExpertPriceCrawler.Web
             var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase));
             SetResult(job, nonErrorResults.FirstOrDefault()?.ProductName, nonErrorResults.FirstOrDefault()?.ProductImage, nonErrorResults.Any(), GetResultTable(result));
 
-            if (!string.IsNullOrWhiteSpace(job.EmailAddress))
+            if (job.EmailAddress.Any())
             {
                 var emailBody = GetEmailBody(job, result);
                 await SendResult(job, emailBody);
@@ -110,7 +111,9 @@ namespace ExpertPriceCrawler.Web
 
             if(stopWatch.Elapsed < CooldownTimespan)
             {
-                await Task.Delay(CooldownTimespan - stopWatch.Elapsed);
+                var delayTimespan = CooldownTimespan - stopWatch.Elapsed;
+                Configuration.Logger.Information("Delaying further execution by {timespan}...", delayTimespan);
+                await Task.Delay(delayTimespan);
                 LastJobTimeTaken = CooldownTimespan;
             } else
             {
@@ -159,7 +162,10 @@ namespace ExpertPriceCrawler.Web
                 IsBodyHtml = true,
             };
 
-            message.To.Add(job.EmailAddress);
+            message.To.Add(smtpServerConfig.Value.From);
+            foreach (var email in job.EmailAddress) {
+                message.Bcc.Add(email);
+            }
             message.From = new MailAddress(smtpServerConfig.Value.From);
 
             Configuration.Logger.Debug("Attempting to send Email to {mailAddress}", job.EmailAddress);

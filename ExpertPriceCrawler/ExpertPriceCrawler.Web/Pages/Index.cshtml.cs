@@ -32,7 +32,8 @@ namespace ExpertPriceCrawler.Web.Pages
         public async Task<IActionResult> OnPostAsync()
         {
             var ipaddress = HttpContext.Connection.RemoteIpAddress.ToString();
-            if (!this.environment.IsDevelopment())
+            var job = new CrawlJob(CrawlJobPost);
+            if (!environment.IsDevelopment())
             {
 
                 if (memoryCache.TryGetValue(ipaddress, out var _))
@@ -40,10 +41,21 @@ namespace ExpertPriceCrawler.Web.Pages
                     Configuration.Logger.Information("Blocking Request from {ipaddress}", ipaddress);
                     return Content($"Leider hast du schon zu viele Anfragen gestellt. Probiere es in {rateLimitInMinutes} Minuten noch einmal.");
                 }
-                else if (memoryCache.TryGetValue(CrawlJobPost.Url, out _))
+                else if (memoryCache.TryGetValue(job.CrawlUrl, out _))
                 {
-                    Configuration.Logger.Information("Blocking Request for {url} due to ratelimit from {ipaddress}", CrawlJobPost.Url, ipaddress);
+                    Configuration.Logger.Information("Blocking Request for {url} due to ratelimit from {ipaddress}", job.CrawlUrl, ipaddress);
                     return Content($"Dieses Produkt wurde erst kürzlich angefragt. Probiere es in {rateLimitInMinutes} Minuten noch einmal.");
+                }
+                var alreadyExistInQueue = channelManager.JobsInQueue.FirstOrDefault(j => j.CrawlUrl.Equals(job.CrawlUrl));
+                if(alreadyExistInQueue is not null)
+                {
+                    if (!string.IsNullOrWhiteSpace(CrawlJobPost.EmailAddress))
+                    {
+                        Configuration.Logger.Information("Url already requested. Adding Email to Emailaddress list of existing job");
+                        alreadyExistInQueue.EmailAddress.Add(CrawlJobPost.EmailAddress);
+
+                    }
+                    return RedirectToPage("/Queue", new { alreadyExistInQueue.Id });
                 }
             }
             if(!ModelState.IsValid)
@@ -52,8 +64,7 @@ namespace ExpertPriceCrawler.Web.Pages
             }
             Configuration.Logger.Information("Processing request from {ipaddress}", ipaddress);
             memoryCache.Set(ipaddress, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
-            memoryCache.Set(CrawlJobPost.Url, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
-            var job = new CrawlJob(CrawlJobPost);
+            memoryCache.Set(job.CrawlUrl, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
             await channelManager.AddJob(job);
             return RedirectToPage("/Queue", new { job.Id });
         }

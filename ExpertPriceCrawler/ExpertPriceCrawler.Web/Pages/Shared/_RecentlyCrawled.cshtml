@@ -33,7 +33,24 @@
     @if (queueCount > 0)
     {
         <div>
-            <span>Derzeit sind @queueCount Anfragen in der Warteschlange</span>
+            <a data-bs-toggle="collapse" href="#collapseQueue" role="button">Derzeit sind @queueCount Anfragen in der Warteschlange</a>
+            <table id="collapseQueue" class="collapse table table-striped table-sm">
+                <thead>
+                    <tr>
+                        <th>Anfragezeit</th>
+                        <th>Url</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach(var jobInQueue in channelManager.JobsInQueue)
+                    {
+                        <tr>
+                            <td>@jobInQueue.TimeCreated.ToGermanDateTimezoneString()</td>
+                            <td>@jobInQueue.CrawlUrl</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
     @if (Model.Count > 0)

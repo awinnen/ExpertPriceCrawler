@@ -15,6 +15,7 @@
         {
             <div>Deine Anfrage wurde der Warteschlange hinzugefügt.</div>
             <div>Derzeit sind @Model.JobCount Aufträge in der Warteschlange</div>
+            <div>Deine Anfrage ist an Position @Model.QueuePosition der Warteschlange</div>
         }
         <div>
             <p>Aktuell beträgt die Wartezeit in etwa @((int)Model.EstimatedWaitingTime.TotalMinutes) Minuten. Anschließend findest du dein Ergebnis in der Liste unten.</p>
