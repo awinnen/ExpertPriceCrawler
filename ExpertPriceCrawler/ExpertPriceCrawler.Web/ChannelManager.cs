@@ -100,7 +100,7 @@ namespace ExpertPriceCrawler.Web
             var result = await resultTask;
             stopWatch.Stop();
 
-            var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase));
+            var nonErrorResults = result.Where(x => !x.Price.Equals("error", StringComparison.OrdinalIgnoreCase) && !x.Price.Equals("N/A", StringComparison.OrdinalIgnoreCase));
             SetResult(job, nonErrorResults.FirstOrDefault()?.ProductName, nonErrorResults.FirstOrDefault()?.ProductImage, nonErrorResults.Any(), GetResultTable(result));
 
             if (job.EmailAddress.Any())

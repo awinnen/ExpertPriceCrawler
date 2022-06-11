@@ -97,8 +97,7 @@ namespace ExpertPriceCrawler
         public Regex CartIdRegex = new Regex(CartIdPattern, RegexOptions.Compiled);
         public Regex ArticleIdRegex = new Regex(ArticleIdPattern, RegexOptions.Compiled);
         public Regex CsrfTokenRegex = new Regex(CsrfTokenPattern, RegexOptions.Compiled);
-        public string AddItemUrl = "https://www.expert.de/_api/shoppingcart/addItem";
-        public string ModifyItemQuantityUrl = "https://www.expert.de/_api/shoppingcart/modifyItemQuantity";
+        public string AddItemUrl = "/_api/shoppingcart/addItem";
 
         internal ConfigurationValues() { }
     }

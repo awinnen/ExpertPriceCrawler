@@ -21,9 +21,10 @@ namespace ExpertPriceCrawler
             await EnsureBrowserAvailable();
 
             logger.Information($"Requested Prices for {uri}");
-            var (cookies, cartId, articleId, csrfToken, userAgent) = await GetRequiredInformation(uri.ToString());
+            var (cookies, cartId, articleId, csrfToken, userAgent, productName, productImageUrl) = await GetRequiredInformation(uri.ToString());
 
             using var httpClient = new HttpClient();
+            httpClient.BaseAddress = new Uri(Configuration.Instance.ExpertBaseUrl);
             httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, userAgent);
             httpClient.DefaultRequestHeaders.Add("csrf-token", csrfToken);
 
@@ -31,7 +32,12 @@ namespace ExpertPriceCrawler
             {
                 logger.Verbose("Result not in cache. Crawling with {maxParallel} parallel requests", configuration.MaxParallelRequests);
                 e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(configuration.MemoryCacheMinutes);
-                return await GetResultForUri(httpClient, uri, articleId, cartId, cookies, CancellationToken.None);
+                var result = await GetResultForUri(httpClient, uri, articleId, cartId, cookies, CancellationToken.None);
+                result.ForEach(r => {
+                    r.ProductName = productName;
+                    r.ProductImage = productImageUrl;
+                });
+                return result;
             });
         }
 
@@ -73,7 +79,7 @@ namespace ExpertPriceCrawler
             }
         }
 
-        static async Task<(Dictionary<string, string> cookies, string cartId, string articleId, string csrfToken, string userAgent)> GetRequiredInformation(string productUrl)
+        static async Task<(Dictionary<string, string> cookies, string cartId, string articleId, string csrfToken, string userAgent, string productName, string productImageUrl)> GetRequiredInformation(string productUrl)
         {
             await using var browser = await Puppeteer.LaunchAsync(configuration.PuppeteerLaunchOptions);
             await using var page = await browser.NewPageAsync();
@@ -97,7 +103,17 @@ namespace ExpertPriceCrawler
                 throw new Exception("CartId, ArticleId or CsrfToken not found on Page");
             }
 
-            return (cookieList, cartId.Groups[1].Value, articleId.Groups[1].Value, csrfToken.Groups[1].Value, userAgent);
+            var (productName, productImageUrl) = await FindProductNameAndImage(page);
+            return (cookieList, cartId.Groups[1].Value, articleId.Groups[1].Value, csrfToken.Groups[1].Value, userAgent, productName, productImageUrl);
+        }
+
+        static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(Page page)
+        {
+            var handleImage = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
+            var handleTitle = await page.WaitForSelectorAsync("head title", new WaitForSelectorOptions() { Timeout = 1000 });
+            var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handleImage);
+            var productName = await handleTitle.EvaluateFunctionAsync<string>("(el) => el.innerText", handleTitle);
+            return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim(), productImageUrl);
         }
 
         static async Task<Result> GetResultForBranch(HttpClient httpClient, string productUrl, string articleId, string cartId, Dictionary<string, string> cookies, KeyValuePair<string, string> branch)
@@ -157,15 +173,6 @@ namespace ExpertPriceCrawler
                     PropertyNameCaseInsensitive = true
                 });
 
-                // Remove item from ShoppingCart
-                var deleteContent = new StringContent(JsonSerializer.Serialize(new
-                {
-                    itemId = result.ItemId,
-                    quantity = 0,
-                    shoppingCartId = cartId,
-                }), Encoding.UTF8, "application/json");
-                deleteContent.Headers.Add("Cookie", string.Join("; ", cookies.Select(c => $"{c.Key}={c.Value}")));
-                var deleteResponse = await client.PostAsync(configuration.ModifyItemQuantityUrl, deleteContent);
                 return result.ShoppingCart.LastAdded.Price.Gross;
             }
             finally
