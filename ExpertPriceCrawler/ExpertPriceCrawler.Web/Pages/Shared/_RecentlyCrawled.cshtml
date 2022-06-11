@@ -69,7 +69,10 @@
                         </picture>
                         <div class="card-body">
                             <h5 class="card-title">@item.ProductName</h5>
-                            <h6 class="card-subtitle mb-2 text-muted">@item.TimeCreated.ToGermanDateTimezoneString() (@((int)Math.Ceiling((item.TimeCompleted - item.TimeCreated).TotalMinutes))min)</h6>
+                            <div class="card-subtitle mb-2 text-muted">
+                                <div>Angefordert: @item.TimeCreated.ToGermanDateTimezoneString()</div>
+                                <div>Fertiggestellt: @item.TimeCompleted.ToGermanDateTimezoneString()</div>
+                            </div>
                             @if (item.Success)
                             {
                                 <div>
