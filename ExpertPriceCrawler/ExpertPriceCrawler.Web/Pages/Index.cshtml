@@ -1,4 +1,5 @@
 ﻿@page
+@inject ChannelManager channelManager
 @model IndexModel
 @{
     ViewData["Title"] = "Expert Price Crawler";
@@ -37,6 +38,13 @@
             <button class="btn btn-primary" type="submit">Günstigsten Preis finden</button>
         </div>
     </form>
+    @if(channelManager.JobCount >= 10)
+    {
+        <p>
+            <strong>Die Warteschlange ist derzeit sehr voll. Bitte nutze doch auch die Konsolenanwendung des Crawlers. Mit dieser kannst du die Preise schnell auf deinem eigenen Rechner finden ohne Wartezeit.</strong>
+            <a href="https://github.com/awinnen/ExpertPriceCrawler">Klicke hier für mehr Informationen</a>
+        </p>
+    }
 </div>
 <br />
 @{
