@@ -38,5 +38,5 @@ If you want to run the WebApp on your computer or server(preferred), there are t
    Options__MemoryCacheMinutes=0
    ```
 3. In that folder, open a command line (Powershell, Bash, ...)
-4. RUN `docker run docker.cluster.the.mind-blowing.dev/expertpricecrawler:latest -p 80:80 --env-file expertpricecrawler.env`
+4. RUN `docker run awinnen/expertpricecrawler:latest -p 80:80 --env-file expertpricecrawler.env`
 5. Open any Browser and navigate to http://localhost:80 (http is important! https will not work. If you can't reach that site, make sure your browser is not redirecting to https due to htst!)
