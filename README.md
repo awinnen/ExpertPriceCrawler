@@ -35,7 +35,7 @@ If you want to run the WebApp on your computer or server(preferred), there are t
    Logging__Console__FormatterName=json
    Options__CrawlerType=BrowserCrawler
    Options__MaxParallelRequests=5
-   Options__MemoryCacheMinutes=0
+   Options__MemoryCacheMinutes=5
    ```
 3. In that folder, open a command line (Powershell, Bash, ...)
 4. RUN `docker run -p 80:80 --env-file expertpricecrawler.env awinnen/expertpricecrawler:latest`
