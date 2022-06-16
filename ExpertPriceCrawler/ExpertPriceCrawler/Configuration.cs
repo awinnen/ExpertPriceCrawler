@@ -85,6 +85,11 @@ namespace ExpertPriceCrawler
         /// </summary>
         public string ExpertBaseUrl { get; set; } = "https://expert.de";
 
+        /// <summary>
+        /// Rate Limit for requests by ipaddress and url
+        /// </summary>
+        public int RateLimitInMinutes { get; set; } = 30;
+
         public readonly Regex PriceRegex = new Regex(@"[\d\,\.]+", RegexOptions.Compiled);
         public readonly Regex PriceRegexItemProp = new Regex("itemprop=\"price\".*?([\\d\\,\\.]+)", RegexOptions.Compiled);
         public readonly CultureInfo Culture = CultureInfo.InvariantCulture;

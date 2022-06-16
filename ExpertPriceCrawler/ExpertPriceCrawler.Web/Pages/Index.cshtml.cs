@@ -7,7 +7,7 @@ namespace ExpertPriceCrawler.Web.Pages
 {
     public class IndexModel : PageModel
     {
-        private const int rateLimitInMinutes = 30;
+        private int rateLimitInMinutes => Configuration.Instance.RateLimitInMinutes;
         private readonly ILogger<IndexModel> _logger;
         private readonly ChannelManager channelManager;
         private readonly IMemoryCache memoryCache;
