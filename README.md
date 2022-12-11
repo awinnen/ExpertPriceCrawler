@@ -11,7 +11,7 @@
 - Open a Terminal Window (Powershell, Bash, ZSH or whatever) and execute `dotnet ExpertPriceCrawler.Shell.dll`
   - When Windows warns you that the file _might_ hurt your computer, you must proceed the execution. If you don't trust the Application, you can't use it. Sorry :)
   - The Application will ask you for expert product url
-- On first usage, the App will download a chromium browser. Therefore the first crawling might take a feq minutes. Just be patient and wait until you see many messages in the Console window.
+- On first usage, the App will download a chromium browser. Therefore the first crawling might take a few minutes. Just be patient and wait until you see many messages in the Console window.
 
 ## WebApp
 If you want to run the WebApp on your computer or server(preferred), there are three ways:
