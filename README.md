@@ -8,7 +8,7 @@
 - Go to [release section](https://github.com/awinnen/ExpertPriceCrawler/releases) of this repository and download latest version as zip (e.g. ExpertPriceCrawler-0.5.zip)
 - Extract the zip archive to any directory on your computer
 - Open the directory to which you extracted the archive with explorer
-- Open a Terminal Window (Powershell, Bash, ZSH or whatever) and execute 'dotnet ExpertPriceCrawler.Shell.dll'
+- Open a Terminal Window (Powershell, Bash, ZSH or whatever) and execute `dotnet ExpertPriceCrawler.Shell.dll`
   - When Windows warns you that the file _might_ hurt your computer, you must proceed the execution. If you don't trust the Application, you can't use it. Sorry :)
   - The Application will ask you for expert product url
 - On first usage, the App will download a chromium browser. Therefore the first crawling might take a feq minutes. Just be patient and wait until you see many messages in the Console window.
