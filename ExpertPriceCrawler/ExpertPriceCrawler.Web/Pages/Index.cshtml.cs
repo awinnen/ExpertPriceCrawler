@@ -63,8 +63,12 @@ namespace ExpertPriceCrawler.Web.Pages
                 return BadRequest(ModelState);
             }
             Configuration.Logger.Information("Processing request from {ipaddress}", ipaddress);
-            memoryCache.Set(ipaddress, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
-            memoryCache.Set(job.CrawlUrl, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
+
+            if (rateLimitInMinutes > 0)
+            {
+                memoryCache.Set(ipaddress, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
+                memoryCache.Set(job.CrawlUrl, string.Empty, TimeSpan.FromMinutes(rateLimitInMinutes));
+            }
             await channelManager.AddJob(job);
             return RedirectToPage("/Queue", new { job.Id });
         }
