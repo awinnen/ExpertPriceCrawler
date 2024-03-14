@@ -3,6 +3,7 @@ using Microsoft.Net.Http.Headers;
 using PuppeteerSharp;
 using Serilog;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -21,33 +22,34 @@ namespace ExpertPriceCrawler
             await EnsureBrowserAvailable();
 
             logger.Information($"Requested Prices for {uri}");
-            var (cookies, cartId, articleId, csrfToken, userAgent, productName, productImageUrl) = await GetRequiredInformation(uri.ToString());
+            var (cookies, webCode, userAgent, productName) = await GetRequiredInformation(uri.ToString());
 
             using var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(Configuration.Instance.ExpertBaseUrl);
             httpClient.DefaultRequestHeaders.Add(HeaderNames.UserAgent, userAgent);
-            httpClient.DefaultRequestHeaders.Add("csrf-token", csrfToken);
+            //httpClient.DefaultRequestHeaders.Add("csrf-token", csrfToken);
 
             return await memoryCache.GetOrCreateAsync(uri.ToString(), async e =>
             {
                 logger.Verbose("Result not in cache. Crawling with {maxParallel} parallel requests", configuration.MaxParallelRequests);
                 e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(configuration.MemoryCacheMinutes);
-                var result = await GetResultForUri(httpClient, uri, articleId, cartId, cookies, CancellationToken.None);
+                var result = await GetResultForUri(httpClient, uri, webCode, cookies, CancellationToken.None);
                 result.ForEach(r => {
                     r.ProductName = productName;
-                    r.ProductImage = productImageUrl;
                 });
                 return result;
             });
         }
 
-        private static async Task<List<Result>> GetResultForUri(HttpClient httpClient, Uri uri, string articleId, string cartId, Dictionary<string, string> cookies, CancellationToken cancellationToken)
+        private static async Task<List<Result>> GetResultForUri(HttpClient httpClient, Uri uri, string webCode, Dictionary<string, string> cookies, CancellationToken cancellationToken)
         {
 
             var results = new ConcurrentDictionary<string, Result>();
             var branchesTotal = configuration.Branches.Count;
             var branchesDone = 0;
+            var timer = new Stopwatch();
 
+            timer.Start();
             await Parallel.ForEachAsync(configuration.Branches, new ParallelOptions
             {
                 MaxDegreeOfParallelism = configuration.MaxParallelRequests,
@@ -56,7 +58,7 @@ namespace ExpertPriceCrawler
             {
                 try
                 {
-                    results.TryAdd(branch.Key, await GetResultForBranch(httpClient, uri.ToString(), articleId, cartId, cookies, branch));
+                    results.TryAdd(branch.Key, await GetResultForBranch(httpClient, uri.ToString(), webCode, cookies, branch));
                 }
                 finally
                 {
@@ -65,7 +67,8 @@ namespace ExpertPriceCrawler
                     logger.Information(statusMessage);
                 }
             });
-
+            timer.Stop();
+            logger.Information($"Time took: {timer.Elapsed.TotalSeconds} seconds");
             return results.Values.ToList();
         }
 
@@ -79,7 +82,7 @@ namespace ExpertPriceCrawler
             }
         }
 
-        static async Task<(Dictionary<string, string> cookies, string cartId, string articleId, string csrfToken, string userAgent, string productName, string productImageUrl)> GetRequiredInformation(string productUrl)
+        static async Task<(Dictionary<string, string> cookies, string webCode, string userAgent, string productName)> GetRequiredInformation(string productUrl)
         {
             await using var browser = await Puppeteer.LaunchAsync(configuration.PuppeteerLaunchOptions);
             await using var page = await browser.NewPageAsync();
@@ -94,41 +97,38 @@ namespace ExpertPriceCrawler
             var cookies = await page.GetCookiesAsync(productUrl);
             var cookieList = cookies.ToDictionary(c => c.Name, c => c.Value);
 
-            var cartId = configuration.CartIdRegex.Match(productPage);
-            var articleId = configuration.ArticleIdRegex.Match(productPage);
-            var csrfToken = configuration.CsrfTokenRegex.Match(productPage);
+            var webCode = configuration.WebCodeRegex.Match(productPage);
 
-            if (!(cartId.Success && articleId.Success && csrfToken.Success))
+            if (!webCode.Success)
             {
-                throw new Exception("CartId, ArticleId or CsrfToken not found on Page");
+                throw new Exception("webCode not found on Page");
             }
 
-            var (productName, productImageUrl) = await FindProductNameAndImage(page);
-            return (cookieList, cartId.Groups[1].Value, articleId.Groups[1].Value, csrfToken.Groups[1].Value, userAgent, productName, productImageUrl);
+            var productName = await FindProductNameAndImage(page);
+            return (cookieList, webCode.Groups[1].Value, userAgent, productName);
         }
 
-        static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(Page page)
+        static async Task<string> FindProductNameAndImage(IPage page)
         {
-            var handleImage = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
             var handleTitle = await page.WaitForSelectorAsync("head title", new WaitForSelectorOptions() { Timeout = 1000 });
-            var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handleImage);
             var productName = await handleTitle.EvaluateFunctionAsync<string>("(el) => el.innerText", handleTitle);
-            return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim(), productImageUrl);
+            return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim());
         }
 
-        static async Task<Result> GetResultForBranch(HttpClient httpClient, string productUrl, string articleId, string cartId, Dictionary<string, string> cookies, KeyValuePair<string, string> branch)
+        static async Task<Result> GetResultForBranch(HttpClient httpClient, string productUrl, string webCode, Dictionary<string, string> cookies, KeyValuePair<string, string> branch)
         {
             var branchUrl = $"{productUrl}?branch_id={branch.Key}";
             try
             {
-                var price = await GetPrice(httpClient, articleId, cartId, branch.Key, cookies);
+                var price = await RequestAPIforWebCode(httpClient, webCode, branch.Key);
                 return new Result()
                 {
                     BranchId = branch.Key,
                     BranchName = branch.Value,
-                    Price = price is not null ? $"{price}€" : "N/A",
-                    PriceDecimal = price ?? decimal.MaxValue,
-                    Url = branchUrl
+                    Price = price.price is not null ? $"{price.price}€" : "N/A",
+                    PriceDecimal = price.price ?? decimal.MaxValue,
+                    Url = branchUrl,
+                    IsExhibition = price.isOnDisplay ?? false
                 };
             }
             catch (Exception ex)
@@ -143,42 +143,67 @@ namespace ExpertPriceCrawler
                 };
             }
         }
-
-        static async Task<decimal?> GetPrice(HttpClient client, string articleId, string cartId, string branchId, Dictionary<string, string> cookies)
+        static async Task<(bool error, decimal? price, bool? isOnDisplay)> RequestAPIforWebCode(HttpClient clients, string webCode, string branchCode, int maxRetries = 3)
         {
-            try
+            string apiUrl = $"https://shop.brntgs.expert.de/api/pricepds?webcode={webCode}&storeId={branchCode}";
+
+            for (int retry = 1; retry <= maxRetries; retry++)
             {
-                var payload = JsonSerializer.Serialize(new
+                using (HttpClient client = new HttpClient())
                 {
-                    shoppingCartId = cartId,
-                    quantity = 1,
-                    article = articleId,
-                });
-                var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                    try
+                    {
+                        client.Timeout = TimeSpan.FromSeconds(10);
+                        HttpResponseMessage response = await client.GetAsync(apiUrl);
 
-                cookies = cookies.ToDictionary(x => x.Key, x => x.Value);
-                cookies["fmarktcookie"] = $"e_{branchId}";
-                content.Headers.Add("Cookie", string.Join("; ", cookies.Select(c => $"{c.Key}={c.Value}")));
+                        if (response.IsSuccessStatusCode)
+                        {
+                            string responseBody = await response.Content.ReadAsStringAsync();
 
-                var shoppingCartResponse = await client.PostAsync(configuration.AddItemUrl, content);
-                var body = await shoppingCartResponse.Content.ReadAsStringAsync();
-                if (!shoppingCartResponse.IsSuccessStatusCode)
-                {
-                    logger.Error("Error while adding to shoppingcart, {response}", body);
-                    return null;
+                            var responseObj = JsonSerializer.Deserialize<ExpertApiResponseBody>(responseBody);
+
+                            if (responseObj?.price?.bruttoPrice != 0)
+                            {
+                                logger.Debug($"Success retrieving price. price: {responseObj?.price?.bruttoPrice}");
+                                return (false, responseObj.price.bruttoPrice, responseObj?.price?.itemOnDisplay ?? false);
+                            }
+                            else
+                            {
+                                logger.Debug($"Failed to retrieve price. price: {responseObj?.price?.bruttoPrice} -- Status code: {response.StatusCode}");
+                                return (true, null, null);
+                            }
+                        }
+                        else
+                        {
+                            logger.Debug($"Failed to retrieve data. url: {apiUrl}");
+                            return (true, null, null);
+                        }
+                    }
+                    catch (TaskCanceledException timeoutE)
+                    {
+                        if (retry < maxRetries)
+                        {
+                            logger.Debug($"Ran into a timeout, retrying: {retry}");
+                            await Task.Delay(2000);
+                            continue;
+                        }
+                        else
+                        {
+                            logger.Debug(timeoutE, $"Maxed out on request retries for URL{apiUrl}");
+                            return (true, null, null);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+
+                        logger.Debug(e, $"Maxed out on request retries for URL{apiUrl}");
+                        return (true, null, null);
+
+                    }
                 }
-                shoppingCartResponse.EnsureSuccessStatusCode();
-                var result = JsonSerializer.Deserialize<AddItemResponse>(body, new JsonSerializerOptions()
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                return result.ShoppingCart.LastAdded.Price.Gross;
             }
-            finally
-            {
-                await Task.Delay(1000);
-            }
+            // Should not reach here
+            return (true, null, null);
         }
     }
 }

@@ -12,6 +12,10 @@ namespace ExpertPriceCrawler
         {
             return new Uri($"{Configuration.Instance.ExpertBaseUrl}{original.AbsolutePath}");
         }
+        public static Uri MakeExpertPriceAPICrawlUri(this Uri original)
+        {
+            return new Uri($"{Configuration.Instance.ExpertBaseUrl}{original.AbsolutePath}");
+        }
 
         public static Uri NormalizeUri(this Uri original)
         {

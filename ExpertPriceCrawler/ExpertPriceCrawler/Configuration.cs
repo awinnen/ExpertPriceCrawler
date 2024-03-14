@@ -99,9 +99,11 @@ namespace ExpertPriceCrawler
         public const string CartIdPattern = "data-cart-id=\"(.+?)\"";
         public const string ArticleIdPattern = "data-article-id=\"(.+?)\"";
         public const string CsrfTokenPattern = "content=\"(.+?)\".*(csrf-token)";
+        public const string WebCodePattern = "Web-Code:\\s*(\\d+)";
         public Regex CartIdRegex = new Regex(CartIdPattern, RegexOptions.Compiled);
         public Regex ArticleIdRegex = new Regex(ArticleIdPattern, RegexOptions.Compiled);
         public Regex CsrfTokenRegex = new Regex(CsrfTokenPattern, RegexOptions.Compiled);
+        public Regex WebCodeRegex = new Regex(WebCodePattern, RegexOptions.Compiled);
         public string AddItemUrl = "/_api/shoppingcart/addItem";
 
         internal ConfigurationValues() { }

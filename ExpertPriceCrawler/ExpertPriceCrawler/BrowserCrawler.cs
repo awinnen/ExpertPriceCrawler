@@ -32,7 +32,7 @@ namespace ExpertPriceCrawler
             try
             {
                 using var browser = await Puppeteer.LaunchAsync(configuration.PuppeteerLaunchOptions);
-                ConcurrentStack<BrowserContext> browserContextPool = await CreateBrowserContextPool(browser);
+                ConcurrentStack<IBrowserContext> browserContextPool = await CreateBrowserContextPool(browser);
 
                 var results = new ConcurrentDictionary<string, Result>();
                 var branchesTotal = configuration.Branches.Count;
@@ -111,9 +111,9 @@ namespace ExpertPriceCrawler
             }
         }
 
-        private static async Task<ConcurrentStack<BrowserContext>> CreateBrowserContextPool(Browser browser)
+        private static async Task<ConcurrentStack<IBrowserContext>> CreateBrowserContextPool(IBrowser browser)
         {
-            var browserContextPool = new ConcurrentStack<BrowserContext>();
+            var browserContextPool = new ConcurrentStack<IBrowserContext>();
             for (var i = 0; i < configuration.MaxParallelRequests; i++)
             {
                 browserContextPool.Push(await browser.CreateIncognitoBrowserContextAsync());
@@ -122,7 +122,7 @@ namespace ExpertPriceCrawler
             return browserContextPool;
         }
 
-        static async Task<(bool Error, decimal? Price, bool isExhibition, string productName, string imageUrl)> RequestProductPageInBrowser(BrowserContext browserContext, string productUrl)
+        static async Task<(bool Error, decimal? Price, bool isExhibition, string productName, string imageUrl)> RequestProductPageInBrowser(IBrowserContext browserContext, string productUrl)
         {
             try
             {
@@ -147,7 +147,7 @@ namespace ExpertPriceCrawler
                 var retries = configuration.Retries;
                 var retryDelayInMinutes = 1;
 
-                Response response = await page.GoToAsync(productUrl);
+                IResponse response = await page.GoToAsync(productUrl);
                 while (response.Status != System.Net.HttpStatusCode.OK && retries-- > 0)
                 {
                     if (response.Status is System.Net.HttpStatusCode.TooManyRequests)
@@ -173,20 +173,20 @@ namespace ExpertPriceCrawler
             }
         }
 
-        static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(Page page)
+        static async Task<(string productName, string productImageUrl)> FindProductNameAndImage(IPage page)
         {
-            var handleImage = await page.WaitForSelectorAsync(".widget-ArticleImage-articleImage", new WaitForSelectorOptions() { Timeout = 1000 });
+            var handleImage = await page.WaitForSelectorAsync(".image-item", new WaitForSelectorOptions() { Timeout = 1000 });
             var handleTitle = await page.WaitForSelectorAsync("head title", new WaitForSelectorOptions() { Timeout = 1000 });
-            var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.src", handleImage);
+            var productImageUrl = await handleImage.EvaluateFunctionAsync<string>("(el) => el.dataset.img", handleImage);
             var productName = await handleTitle.EvaluateFunctionAsync<string>("(el) => el.innerText", handleTitle);
             return (productName?.Replace("- bei expert kaufen", string.Empty)?.Trim(), productImageUrl);
         }
 
-        static async Task<bool> FindExhibitionStatus(Page page)
+        static async Task<bool> FindExhibitionStatus(IPage page)
         {
             try
             {
-                var handle = await page.WaitForSelectorAsync(".widget-ArticleExhibit-info", new WaitForSelectorOptions() { Timeout = 10 });
+                var handle = await page.WaitForSelectorAsync(".articleExhibit.mr-2", new WaitForSelectorOptions() { Timeout = 10 });
                 return true;
             }
             catch(Exception e)
@@ -195,14 +195,47 @@ namespace ExpertPriceCrawler
             }
         }
 
-        static async Task<decimal?> FindPrice(Page page)
+        static async Task<decimal?> FindPrice(IPage page)
         {
             try
             {
-                var handle = await page.WaitForSelectorAsync("div[itemProp=\"price\"]", new WaitForSelectorOptions() { Timeout = 5000 });
-                var property = await handle.GetPropertyAsync("innerText");
-                var innerText = await property.JsonValueAsync();
-                return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(configuration.PriceRegex.Match(priceString).Value, configuration.Culture) : null;
+                await new BrowserFetcher().DownloadAsync();
+                var launchOptions = new LaunchOptions
+                {
+                    Headless = false,
+                };
+                using (var browser = await Puppeteer.LaunchAsync(launchOptions))
+                using (var pageTest = await browser.NewPageAsync())
+                {
+                    
+                    await pageTest.GoToAsync(page.Url);
+                    var testcontentt = await pageTest.GetContentAsync();
+                    await page.WaitForTimeoutAsync(2000);
+                    //var handlet = await pageTest.WaitForSelectorAsync(".exp_price", new WaitForSelectorOptions() { Timeout = 50000 }) ;
+                    var handlet = await pageTest.WaitForSelectorAsync("div.flex-col:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > span", new WaitForSelectorOptions() { Timeout = 1000 });
+                    //var marktHandle = await pageTest.WaitForSelectorAsync("#\\31  > div.lg\\:container.lg\\:mx-auto.lg\\:flex.lg\\:justify-between > div > div:nth-child(3) > div.local-store.flyout.flex.flex-col.border.border-solid.border-secondary.w-full.left-0.sm\\:left-auto.sm\\:right-0.absolute.sm\\:w-\\[350px\\].text-paragraph > div.storeName.items-center.p-4 > div > div:nth-child(1)", new WaitForSelectorOptions() { Timeout = 50000, Visible = true });
+                    //var makrtProperty = await marktHandle.GetPropertyAsync("innerText");
+                    //var marktInnerTexts = await makrtProperty.JsonValueAsync();
+
+                    //var xpropertsy = await handlet.GetPropertyAsync("innerText");
+                    //var xinnerTexts = await xpropertsy.JsonValueAsync();
+
+
+                    var propertsy = await handlet.GetPropertyAsync("innerText");
+                    var innerTexts = await propertsy.JsonValueAsync();
+
+                    //Console.WriteLine("Markt:" + marktInnerTexts + "Price:" + innerTexts);
+                    return innerTexts is string priceStrings && !string.IsNullOrWhiteSpace(priceStrings) ? decimal.Parse(configuration.PriceRegex.Match(priceStrings).Value, configuration.Culture) : null;
+
+                }
+
+                //var testcontent = await page.GetContentAsync();
+
+                //var test = await page.WaitForXPathAsync("/html/body/div[1]/div/main/div/div[1]/div[4]/div[2]/div[2]/div[2]/div[1]/div[2]/div[2]/span", new WaitForSelectorOptions() { Timeout = 50000, Visible = true });
+                //var handle = await page.WaitForSelectorAsync(".exp_price", new WaitForSelectorOptions() { Timeout = 300000 });
+                //var property = await handle.GetPropertyAsync("innerText");
+                //var innerText = await property.JsonValueAsync();
+                //return innerText is string priceString && !string.IsNullOrWhiteSpace(priceString) ? decimal.Parse(configuration.PriceRegex.Match(priceString).Value, configuration.Culture) : null;
             }
             catch (Exception e)
             {
